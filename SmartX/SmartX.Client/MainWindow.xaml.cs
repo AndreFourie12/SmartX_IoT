@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using SmartX.Client.Views;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -16,9 +17,46 @@ namespace SmartX.Client
     /// </summary>
     public partial class MainWindow : Window
     {
+        private SensorIngestionView? _ingestionView;
+
         public MainWindow()
         {
             InitializeComponent();
+            ShowLandingPage();
+        }
+
+        private void OnIngestionNavClick(object sender, RoutedEventArgs e)
+        {
+            _ingestionView ??= new SensorIngestionView();
+            MainContent.Content = _ingestionView;
+        }
+
+        private void ShowLandingPage()
+        {
+            MainContent.Content = new StackPanel
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Children =
+            {
+                new TextBlock
+                {
+                    Text = "Welcome to the Smart-X Gateway",
+                    FontSize = 28,
+                    FontWeight = FontWeights.Bold
+                },
+                new TextBlock
+                {
+                    Text = "Select \"Sensor Data Ingestion & Telemetry\" from the left to get started.",
+                    FontSize = 14,
+                    Foreground = System.Windows.Media.Brushes.Gray,
+                    Margin = new Thickness(0, 8, 0, 0)
+                }
+            }
+            };
         }
     }
 }
+
+
+//------------------------------------------- End Of File -------------------------------------------//
