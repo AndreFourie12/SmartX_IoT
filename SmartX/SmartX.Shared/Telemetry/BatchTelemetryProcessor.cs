@@ -42,5 +42,10 @@ namespace SmartX.Shared.Telemetry
             // Hands back the full timestamp list
             return packets;
         }
+
+        //----------------------------------------------------------//
+
     }
 }
+
+//------------------------------------------- End Of File -------------------------------------------//
