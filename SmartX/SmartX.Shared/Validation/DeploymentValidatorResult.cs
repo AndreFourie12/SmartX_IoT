@@ -4,7 +4,13 @@ using System.Text;
 
 namespace SmartX.Shared.Validation
 {
-    internal class DeploymentValidatorResult
-    {
-    }
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="IsValid"></param>
+    /// <param name="Errors"></param>
+    public sealed record DeploymentValidatorResult(bool IsValid, IReadOnlyList<string> Errors);
+
 }
+
+//------------------------------------------- End Of File -------------------------------------------//

@@ -12,8 +12,13 @@ namespace SmartX.Shared.Telemetry
   
     public interface ITelemetryPacket
     {
+        // ID of the sensor the reading came from
         string SensorId { get; }
+
+        // Time the reading came through
         DateTimeOffset TimestampUtc { get; }
+
+        // What unit is attached to that reading
         string Unit { get; }
 
         // String projection of the strongly-typed value, formatted without boxing.

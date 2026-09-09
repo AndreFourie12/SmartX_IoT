@@ -12,9 +12,9 @@ namespace SmartX.Shared.Validation
     {
         Facility,
         Zone,
-        SubZone
+        SubZone,
+        Device
     }
-
     //----------------------------------------------------------//
 
 
@@ -31,8 +31,8 @@ namespace SmartX.Shared.Validation
         public string? DeviceMacAddress { get; init; }
         public List<DeploymentNode> Children { get; init; } = new();
     }
-
     //----------------------------------------------------------//
+
 }
 
 //------------------------------------------- End Of File -------------------------------------------//

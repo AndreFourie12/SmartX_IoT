@@ -24,6 +24,9 @@ namespace SmartX.Shared.Telemetry
             Unit = unit;
             SensorId = sensorId;
         }
+        //----------------------------------------------------------//
+
+
 
         public string ValueAsString => Value is IFormattable formattable
         ? formattable.ToString(null, System.Globalization.CultureInfo.InvariantCulture)
