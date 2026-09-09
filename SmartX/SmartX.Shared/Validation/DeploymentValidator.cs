@@ -50,7 +50,8 @@ namespace SmartX.Shared.Validation
 
 
         /// <summary>
-        /// 
+        /// Base cases added for the recursion
+        /// Stops the recursion for infinitly calling itself and causing a stack overflow
         /// </summary>
         public static void ValidateRecursive(DeploymentNode node, int depth, string path, List<string> errors)
         {
