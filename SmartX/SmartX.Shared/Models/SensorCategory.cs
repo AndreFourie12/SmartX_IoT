@@ -9,7 +9,7 @@ namespace SmartX.Shared.Models
     /// Discribes what its used for.
     /// </summary>
     
-    public enum SensorCategory // NB NB - Add more when app is done, 3 example ones for now
+    public enum SensorCategory // NB NB - Add more when app is done, 3 examples for now, add at least 2 more
     {
         Environmental,
         PowerConsumption,
