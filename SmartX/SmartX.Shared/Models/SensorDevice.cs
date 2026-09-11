@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 
@@ -24,7 +25,7 @@ namespace SmartX.Shared.Models
         public required DateTimeOffset RegisteredAtUtc { get; init; }
 
         // Attachment added to the sensor, information of attachment stored in SensorAttachment
-        public Dictionary<string, SensorAttachment> Attachments { get; } = new();
+        public ConcurrentDictionary<string, SensorAttachment> Attachments { get; } = new();
     }
 }
 
