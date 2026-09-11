@@ -16,9 +16,7 @@
 
   <ItemGroup>
     <Folder Include="Controllers\" />
-    <Folder Include="Domains\" />
-    <Folder Include="Storage\" />
-    <Folder Include="Services\" />
+    <Folder Include="Data\" />
   </ItemGroup>
 
 </Project>
