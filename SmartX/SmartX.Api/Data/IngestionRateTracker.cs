@@ -1,7 +1,7 @@
 ﻿namespace SmartX.Api.Data
 {
     /// <summary>
-    /// 
+    /// Measures live ingestion throughput for the navigation bar's msg/s readout.
     /// </summary>
     public sealed class IngestionRateTracker
     {
