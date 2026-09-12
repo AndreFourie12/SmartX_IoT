@@ -13,8 +13,6 @@ namespace SmartX.Api.Data
 
         private readonly ConcurrentDictionary<string, SensorDevice> _sensors = new();
 
-
-
         /// <summary>
         /// Adds new sensor OR overwrites an existing one with the same ID
         /// </summary>

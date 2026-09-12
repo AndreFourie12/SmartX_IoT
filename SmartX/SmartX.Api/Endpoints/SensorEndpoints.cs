@@ -14,6 +14,8 @@ namespace SmartX.Api.Endpoints
         {
             var group = app.MapGroup("/api/sensors").WithTags("Sensors");
 
+
+            // Lists all sensors
             group.MapGet("/", (SensorRepository sensors, TelemetryStore telemetry) =>
             {
                 var dtos = sensors.GetAll()
@@ -25,7 +27,7 @@ namespace SmartX.Api.Endpoints
             });
 
 
-            
+            // Get one specific sensor
             group.MapGet("/{id}", (string id, SensorRepository sensors, TelemetryStore telemetry) =>
             {
                 if (!sensors.TryGet(id, out var sensor))
@@ -35,6 +37,8 @@ namespace SmartX.Api.Endpoints
 
             });
 
+
+            // Register new sensor
             group.MapPost("/", (SensorRegistrationRequest request, SensorRepository sensors, TelemetryStore telemetry) =>
             {
                 if (string.IsNullOrWhiteSpace(request.Id) || string.IsNullOrWhiteSpace(request.Location))
