@@ -27,8 +27,7 @@ namespace SmartX.Shared.Contracts
         SensorCategory Category,
         DateTimeOffset RegisteredAtUtc,
         int AttachmentCount,
-        int TelemetryReadingCount,
-        DateTimeOffset? LastReadingUtc);
+        int TelemetryReadingCount);
     //----------------------------------------------------------//
 
 
