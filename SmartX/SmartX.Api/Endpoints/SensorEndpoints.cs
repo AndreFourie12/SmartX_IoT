@@ -41,11 +41,11 @@ namespace SmartX.Api.Endpoints
             // Register new sensor
             group.MapPost("/", (SensorRegistrationRequest request, SensorRepository sensors, TelemetryStore telemetry) =>
             {
-                if (string.IsNullOrWhiteSpace(request.Id) || string.IsNullOrWhiteSpace(request.Location))
+                if (string.IsNullOrWhiteSpace(request.id) || string.IsNullOrWhiteSpace(request.Location))
                     return Results.BadRequest("Id and Location are required");
 
-                if (sensors.Exists(request.Id))
-                    return Results.Conflict($"Sensor '{request.Id}' is already registered");
+                if (sensors.Exists(request.id))
+                    return Results.Conflict($"Sensor '{request.id}' is already registered");
 
                 var sensor = sensors.Register(new SensorDevice
                 {
