@@ -19,6 +19,8 @@ namespace SmartX.Shared.Validation
     /// </summary>
     public static partial class DeploymentValidator
     {
+        private const int RequiredDeviceDepth = 3;
+
         // Guards against cyclic input trees turning recursion into a stack overflow
         private const int MaxDepth = 16;
 
@@ -37,12 +39,15 @@ namespace SmartX.Shared.Validation
         /// Returns a single pass/fail result plus the error list
         /// </summary>
         /// <returns></returns>
-        public static DeploymentValidatorResult Validate(DeploymentNode root)
+        public static DeploymentValidatorResult ValidateAll(IEnumerable<DeploymentNode> roots)
         {
-            // Empty list to collect error
             var errors = new List<string>();
 
-            ValidateRecursive(root, depth: 0, path: root.Name, errors);
+            foreach (var root in roots)
+            {
+                ValidateRecursive(root, depth: 0, path: root.Name, errors);
+            }
+
             return new DeploymentValidatorResult(errors.Count == 0, errors);
         }
         //----------------------------------------------------------//
@@ -87,6 +92,20 @@ namespace SmartX.Shared.Validation
                 ValidateRecursive(child, depth + 1, $"{path} -> {child.Name}", errors);
             }
         }
+        //----------------------------------------------------------//
+
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private static string DescribeDepth(int depth) => depth switch
+        {
+            0 => "at the root",
+            1 => "directly under a facility",
+            2 => "directly under a zone",
+            _ => $"{depth} levels deep"
+        };
         //----------------------------------------------------------//
     }
 }

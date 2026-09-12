@@ -29,6 +29,7 @@ namespace SmartX.Shared.Validation
         public required string Name { get; init; }
         public required DeploymentNodeType NodeType { get; init; }
         public string? DeviceMacAddress { get; init; }
+        public int DeviceCount { get; set; }
         public List<DeploymentNode> Children { get; init; } = new();
     }
     //----------------------------------------------------------//

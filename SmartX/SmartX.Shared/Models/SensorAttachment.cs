@@ -27,6 +27,9 @@ namespace SmartX.Shared.Models
 
         // Time the attachment was added
         public required DateTimeOffset UploadedAtUtc { get; init; }
+
+        // Name of encrypted blob on disk, never exposed to client
+        public required string StorageFileName { get; init; }
     }
 }
 
