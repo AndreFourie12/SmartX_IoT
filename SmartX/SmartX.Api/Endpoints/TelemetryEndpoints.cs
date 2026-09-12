@@ -6,6 +6,9 @@ using System.Globalization;
 
 namespace SmartX.Api.Endpoints
 {
+    /// <summary>
+    /// 
+    /// </summary>
     public static class TelemetryEndpoints
     {
         public static void MapTelemetryEndpoints(this IEndpointRouteBuilder app)
