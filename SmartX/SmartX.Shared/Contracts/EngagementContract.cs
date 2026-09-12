@@ -8,7 +8,7 @@ namespace SmartX.Shared.Contracts
     /// Snapshot behind the "Telemetry Pulse" dashboard widget
     /// Recomputed from live telemetry each time its requested
     /// </summary>
-    public sealed record EngagementContractDto(
+    public sealed record EngagementSummaryDto(
         int HealthScore,
         int CleanStreak,
         IReadOnlyList<string> ActiveAlerts,
