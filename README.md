@@ -49,15 +49,6 @@
 ## Project Overview
 
 
-### Built With
-
-* [![C#][CSharp.cs]][CSharp-url]
-* [![Visual Studio][VisualStudio.vs]][VisualStudio-url]
-* [![WPF][WPF.wpf]][WPF-url]
-* [![ASP.NET Core][AspNetCore.aspnet]][AspNetCore-url]
-* [![Docker][Docker.docker]][Docker-url]
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 
 ## Running the build
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
