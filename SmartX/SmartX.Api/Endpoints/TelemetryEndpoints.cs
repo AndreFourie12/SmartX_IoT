@@ -36,7 +36,7 @@ namespace SmartX.Api.Endpoints
                 return Results.Ok(ToDto(packet));
             })
             .Produces<TelemetryDto>()
-            .Produces(StatusCode.Status404NotFound);
+            .Produces(StatusCodes.Status404NotFound);
 
 
             //
