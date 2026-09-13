@@ -329,7 +329,7 @@ namespace SmartX.Client.Views
         /// <summary>
         /// 
         /// </summary>
-        private async void OnSensorsSelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void OnSensorSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (SensorsGrid.SelectedItem is not SensorDto sensor)
                 return;
@@ -396,9 +396,44 @@ namespace SmartX.Client.Views
         /// <summary>
         /// 
         /// </summary>
-        private async Task RefreshTelemetryAndAttachmentAsync()
+        private async void OnSimulateBatchClick(object sender, RoutedEventArgs e)
         {
+            if (SensorsGrid.SelectedItem is not SensorDto sensor)
+            {
+                ActionStatusText.Text = "Select a sensor first.";
+                return;
+            }
 
+            if (sensor.Category != SensorCategory.Environmental)
+            {
+                ActionStatusText.Text = "Batch simulation targets Environmental sensors (jagged float[][] sampling windows).";
+                return;
+            }
+
+            var rng = Random.Shared;
+            int windowCount = rng.Next(4, 8);
+            var windows = new float[windowCount][];
+
+            for (int w = 0; w < windowCount; w++)
+            {
+                int sampleCount = rng.Next(2, 6);
+                windows[w] = new float[sampleCount];
+                for (int s = 0; s < sampleCount; s++)
+                    windows[w][s] = 35f + (float)rng.NextDouble() * 35f;
+            }
+
+            try
+            {
+                var response = await App.ApiClient.IngestBatchAsync(sensor.Id, new BatchTelemetryIngestRequest(windows, "%"));
+                ActionStatusText.Text = $"Ingested {response?.PacketsIngested ?? 0} readings from a {windowCount}-window jagged batch.";
+
+                await RefreshSensorsAsync();
+                await LoadSensorDetailAsync(sensor.Id);
+            }
+            catch (Exception ex)
+            {
+                ActionStatusText.Text = $"Batch ingest failed: {ex.Message}";
+            }
         }
         //----------------------------------------------------------//
 
@@ -407,70 +442,149 @@ namespace SmartX.Client.Views
         /// <summary>
         /// 
         /// </summary>
-        private async void OnAttachFileClick()
+        private async void OnAttachFileClick(object sender, RoutedEventArgs e)
         {
+            if (SensorsGrid.SelectedItem is not SensorDto sensor)
+            {
+                ActionStatusText.Text = "Select a sensor first.";
+                return;
+            }
 
+            var dialog = new OpenFileDialog
+            {
+                Title = "Attach a config file, deployment photo, or hardware log",
+                Filter = "All files (*.*)|*.*"
+            };
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            try
+            {
+                ActionStatusText.Text = "Uploading and encrypting...";
+                await App.ApiClient.UploadAttachmentAsync(sensor.Id, dialog.FileName);
+                ActionStatusText.Text = $"Attached '{System.IO.Path.GetFileName(dialog.FileName)}' to {sensor.Id} (AES-256 encrypted at rest).";
+
+                await RefreshSensorsAsync();
+                await LoadSensorDetailAsync(sensor.Id);
+            }
+            catch (Exception ex)
+            {
+                ActionStatusText.Text = $"Upload failed: {ex.Message}";
+            }
         }
         //----------------------------------------------------------//
-
 
 
         /// <summary>
         /// 
         /// </summary>
-        private async void OnSimulateBatchClick()
+        private async void OnValidateHierarchyClick(object sender, RoutedEventArgs e)
         {
+            try
+            {
+                var result = await App.ApiClient.ValidateDeploymentAsync(_treeRoots);
+                if (result is null)
+                    return;
 
+                if (result.IsValid)
+                {
+                    ValidityDot.Fill = (Brush)FindResource("StatusGreenDot");
+                    ValidityText.Text = "Valid";
+                    ValidityText.Foreground = (Brush)FindResource("StatusGreen");
+                    ValidationErrorsList.Visibility = Visibility.Collapsed;
+                    ActionStatusText.Text = "Deployment hierarchy validated - every device is correctly nested.";
+                }
+                else
+                {
+                    ValidityDot.Fill = (Brush)FindResource("StatusRed");
+                    ValidityText.Text = $"{result.Errors.Count} issue{(result.Errors.Count == 1 ? "" : "s")}";
+                    ValidityText.Foreground = (Brush)FindResource("StatusRed");
+                    ValidationErrorsList.ItemsSource = result.Errors;
+                    ValidationErrorsList.Visibility = Visibility.Visible;
+                    ActionStatusText.Text = "Deployment hierarchy has misconfigured nodes.";
+                }
+            }
+            catch (Exception ex)
+            {
+                ActionStatusText.Text = $"Validation failed: {ex.Message}";
+            }
         }
         //----------------------------------------------------------//
 
-
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        private async Task LoadDeploymentSampleAsync()
-        {
-
-        }
-        //----------------------------------------------------------//
-
-
-
-        /// <summary>
-        /// 
-        /// </summary>
-        private async void OnValidateHierarchyClick()
-        {
-
-        }
-        //----------------------------------------------------------//
-
-
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        private async Task RefreshLiveWidgetsAsync()
-        {
-
-        }
-        //----------------------------------------------------------//
 
         private async Task RefreshEngagementAsync()
         {
+            try
+            {
+                var engagement = await App.ApiClient.GetEngagementSummaryAsync();
+                if (engagement is null)
+                    return;
 
+                Gauge.Score = engagement.HealthScore;
+
+                StreakText.Text = engagement.CleanStreak == 1
+                    ? "1 clean sweep in a row"
+                    : $"{engagement.CleanStreak} clean sweeps in a row";
+                StreakText.Foreground = engagement.CleanStreak > 0
+                    ? (Brush)FindResource("StatusGreenDot")
+                    : (Brush)FindResource("StatusAmberDot");
+
+                AlertsList.ItemsSource = engagement.ActiveAlerts.Take(3).ToList();
+
+                RefreshMeterAggregation();
+            }
+            catch
+            {
+                // A dropped poll shouldn't disturb the dashboard
+                // the next tick retries, and the nav bar's connection strip is what reports a genuinely down gateway.
+            }
         }
 
         /// <summary>
         /// 
         /// </summary>
         /// <returns></returns>
-        private async Task RefreshMeterAggregationAsync()
+        private async void RefreshMeterAggregation()
         {
+            var meters = _allSensors
+            .Where(s => s.Category == SensorCategory.PowerConsumption)
+            .OrderBy(s => s.Id, StringComparer.Ordinal)
+            .Take(2)
+            .ToList();
 
+            if (meters.Count < 2)
+                return;
+
+            try
+            {
+                var readingA = (await App.ApiClient.GetTelemetryAsync(meters[0].Id, take: 1)).FirstOrDefault();
+                var readingB = (await App.ApiClient.GetTelemetryAsync(meters[1].Id, take: 1)).FirstOrDefault();
+
+                if (readingA is null || readingB is null)
+                    return;
+
+                if (!double.TryParse(readingA.Value, CultureInfo.InvariantCulture, out double wattsA) ||
+                    !double.TryParse(readingB.Value, CultureInfo.InvariantCulture, out double wattsB))
+                    return;
+
+                var meterA = new PowerReading(meters[0].Id, wattsA);
+                var meterB = new PowerReading(meters[1].Id, wattsB);
+                var combined = meterA + meterB;
+
+                MeterAName.Text = meterA.MeterId;
+                MeterAValue.Text = $"{meterA.Watts:F1} W";
+                MeterBName.Text = meterB.MeterId;
+                MeterBValue.Text = $"{meterB.Watts:F1} W";
+                MeterTotalValue.Text = $"{combined.Watts:F1} W";
+
+                MeterAggregationText.Visibility = Visibility.Collapsed;
+                MeterAggregationPanel.Visibility = Visibility.Visible;
+            }
+            catch
+            {
+                // Same rationale as the polling tick above.
+            }
         }
         //----------------------------------------------------------//
     }

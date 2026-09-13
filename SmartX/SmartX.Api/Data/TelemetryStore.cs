@@ -64,7 +64,7 @@ namespace SmartX.Api.Data
         public List<ITelemetryPacket> GetRecent(string sensorId, int take)
         {
             if (!_buffers.TryGetValue(sensorId, out var buffer))
-                return [];
+                return new List<ITelemetryPacket>();
 
             lock (LockFor(sensorId))
             {

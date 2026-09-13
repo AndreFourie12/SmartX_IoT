@@ -23,10 +23,10 @@ namespace SmartX.Shared.Collections
         /// </summary>
         public TelemetryRingBuffer(int capacity)
         {
-            if(capacity <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity must be positive");
-            }
+            if (capacity <= 0)
+                throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity must be positive.");
+
+            _buffer = new T[capacity];
         }
         //----------------------------------------------------------//
 

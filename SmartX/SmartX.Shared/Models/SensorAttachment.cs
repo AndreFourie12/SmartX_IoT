@@ -22,7 +22,7 @@ namespace SmartX.Shared.Models
         // Type of file e.g. doc, pdf, doc, html
         public required string ContentType { get; init; }
 
-        // Size of the attachment, prevents files that are too big being saved
+        // Size of the attachment
         public required long SizeBytes { get; init; }
 
         // Time the attachment was added

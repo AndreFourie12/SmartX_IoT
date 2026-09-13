@@ -9,9 +9,9 @@ namespace SmartX.Api.Services
         private const double PacketDropChance = 0.25;
         private static readonly Random Rng = new();
 
-        private readonly string[] _environmentalIds = ["ESP32-ENV-01", "ESP32-ENV-02", "ESP32-ENV-03"];
-        private readonly string[] _powerIds = ["ESP32-PWR-01", "ESP32-PWR-02", "ESP32-PWR-03"];
-        private readonly string[] _actuatorIds = ["ESP32-ACT-01", "ESP32-ACT-02"];
+        private readonly string[] _environmentalIds = new[] { "ESP32-ENV-01", "ESP32-ENV-02", "ESP32-ENV-03" };
+        private readonly string[] _powerIds = new[] { "ESP32-PWR-01", "ESP32-PWR-02", "ESP32-PWR-03" };
+        private readonly string[] _actuatorIds = new[] { "ESP32-ACT-01", "ESP32-ACT-02" };
 
 
         /// <summary>
@@ -19,14 +19,29 @@ namespace SmartX.Api.Services
         /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            SeedSensors();
-            SeedHistoricalBatches();
+            try
+            {
+                SeedSensors();
+                SeedHistoricalBatches();
 
-            logger.LogInformation("Smart-X simulation seeded {Count} sensors with mock telemetry.", sensors.GetAll().Count);
+                logger.LogInformation("Smart-X simulation seeded {Count} sensors with mock telemetry.", sensors.GetAll().Count);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to seed simulation data.");
+                return; // stop the background service loop if seeding failed
+            }
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                GenerateLiveTick();
+                try
+                {
+                    GenerateLiveTick();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Error generating live tick.");
+                }
 
                 try
                 {

@@ -12,7 +12,7 @@ namespace SmartX.Shared.Telemetry
     /// Operators let call sites read like the electrical equations they represent
     /// e.g.  combining two meters on the same  circuit with Meter3 = Meter1 + Meter2
     /// </summary>
-    internal class PowerReading
+    public readonly struct PowerReading : IEquatable<PowerReading>, IComparable<PowerReading>
     {
         public string MeterId { get; }
         public double Watts { get; }
