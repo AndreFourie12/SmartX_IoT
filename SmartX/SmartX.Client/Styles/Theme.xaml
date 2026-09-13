@@ -20,6 +20,10 @@
     <SolidColorBrush x:Key="AccentBlueHover" Color="#1D4ED8" />
     <SolidColorBrush x:Key="AccentBlueSoft" Color="#EAF1FE" />
     <SolidColorBrush x:Key="StatusGreen" Color="#16A34A" />
+    <SolidColorBrush x:Key="StatusGreenDot" Color="#22C55E" />
+    <SolidColorBrush x:Key="StatusAmber" Color="#B45309" />
+    <SolidColorBrush x:Key="StatusAmberDot" Color="#F59E0B" />
+    <SolidColorBrush x:Key="StatusRed" Color="#DC2626" />
     <SolidColorBrush x:Key="HoverGrey" Color="#F4F6F9" />
 
     <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, Courier New</FontFamily>

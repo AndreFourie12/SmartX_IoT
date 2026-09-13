@@ -149,7 +149,7 @@ namespace SmartX.Client.Services
         /// 
         /// </summary>
         public async Task<EngagementSummaryDto?> GetEngagementSummaryAsync(CancellationToken ct = default) =>
-            await _http.GetFromJsonAsync<EngagementSummaryDto>("/api/engagement/summary", JsonOptions, ct)
+            await _http.GetFromJsonAsync<EngagementSummaryDto>("/api/engagement/summary", JsonOptions, ct);
         //----------------------------------------------------------//
     }
 }
