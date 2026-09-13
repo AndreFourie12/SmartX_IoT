@@ -329,8 +329,64 @@ namespace SmartX.Client.Views
         /// <summary>
         /// 
         /// </summary>
-        private async void OnRegisterSensorClick()
+        private async void OnSensorsSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (SensorsGrid.SelectedItem is not SensorDto sensor)
+                return;
+
+            _selectedSensorId = sensor.Id;
+            ActionStatusText.Text = $"{sensor.Id} selected · {sensor.Location}";
+            await LoadSensorDetailAsync(sensor.Id);
+        }
+        //----------------------------------------------------------//
+
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private async Task LoadSensorDetailAsync(string sensorId)
+        {
+            try
+            {
+                var history = await App.ApiClient.GetTelemetryAsync(sensorId, take: 40);
+
+                TelemetryHistoryList.ItemsSource = history;
+                TelemetryEmptyState.Visibility = history.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+                var attachments = await App.ApiClient.GetAttachmentsAsync(sensorId);
+
+                AttachmentsList.ItemsSource = attachments
+                    .Select(a => $"{a.FileName}  ({a.SizeBytes:N0} B)")
+                    .ToList();
+
+                AttachmentsEmptyState.Visibility = attachments.Count 
+                    == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+                AttachmentsEmptyState.Text = "No attachments on this sensor yet.";
+            }
+            catch (Exception ex)
+            {
+                ActionStatusText.Text = $"Could not load sensor detail: {ex.Message}";
+            }
+        }
+        //----------------------------------------------------------//
+
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private async void OnAddSensorClick(object sender, RoutedEventArgs e)
+        {
+            var dialog = new AddSensorDialog { Owner = Window.GetWindow(this) };
+
+            if (dialog.ShowDialog() != true || dialog.RegisteredSensor is null)
+                return;
+
+            ActionStatusText.Text = $"Registered {dialog.RegisteredSensor.Id}.";
+            await RefreshSensorsAsync();
+            SelectSensorRow(dialog.RegisteredSensor.Id);
 
         }
         //----------------------------------------------------------//
@@ -340,18 +396,6 @@ namespace SmartX.Client.Views
         /// <summary>
         /// 
         /// </summary>
-        private async void OnSensorsSelectionChanged()
-        {
-
-        }
-        //----------------------------------------------------------//
-
-
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
         private async Task RefreshTelemetryAndAttachmentAsync()
         {
 
