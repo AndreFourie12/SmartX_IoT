@@ -1,14 +1,7 @@
-﻿using SmartX.Client.Views;
-using System.Text;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
+﻿using System.Windows;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using System.Windows.Threading;
+using SmartX.Client.Views;
 
 namespace SmartX.Client
 {
@@ -17,43 +10,42 @@ namespace SmartX.Client
     /// </summary>
     public partial class MainWindow : Window
     {
-        private SensorIngestionView? _ingestionView;
+        private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(3) };
 
         public MainWindow()
         {
             InitializeComponent();
-            ShowLandingPage();
-        }
 
-        private void OnIngestionNavClick(object sender, RoutedEventArgs e)
-        {
-            _ingestionView ??= new SensorIngestionView();
-            MainContent.Content = _ingestionView;
-        }
+            MainContent.Content = new SensorIngestionView();
 
-        private void ShowLandingPage()
-        {
-            MainContent.Content = new StackPanel
+            _statusTimer.Tick += async (_, _) => await RefreshGatewayStatusAsync();
+            Loaded += async (_, _) =>
             {
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Children =
-            {
-                new TextBlock
-                {
-                    Text = "Welcome to the Smart-X Gateway",
-                    FontSize = 28,
-                    FontWeight = FontWeights.Bold
-                },
-                new TextBlock
-                {
-                    Text = "Select \"Sensor Data Ingestion & Telemetry\" from the left to get started.",
-                    FontSize = 14,
-                    Foreground = System.Windows.Media.Brushes.Gray,
-                    Margin = new Thickness(0, 8, 0, 0)
-                }
-            }
+                await RefreshGatewayStatusAsync();
+                _statusTimer.Start();
             };
+        }
+
+        private async Task RefreshGatewayStatusAsync()
+        {
+            try
+            {
+                var status = await App.ApiClient.GetGatewayStatusAsync();
+                if (status is null)
+                    return;
+
+                ConnectionDot.Fill = (Brush)FindResource("StatusGreenDot");
+                ConnectionText.Text = "Gateway connected";
+                ThroughputText.Text = $"{status.MessagesPerSecond:F1} msg/s · up {status.Uptime:hh\\:mm\\:ss}";
+            }
+            catch
+            {
+                // Reaching the endpoint at all is the connection test, so a failure here is
+                // exactly what "disconnected" means - surface it rather than swallowing it.
+                ConnectionDot.Fill = (Brush)FindResource("StatusRed");
+                ConnectionText.Text = "Gateway unreachable";
+                ThroughputText.Text = "start SmartXApp.Api";
+            }
         }
     }
 }
