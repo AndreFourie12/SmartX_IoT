@@ -13,29 +13,29 @@ namespace SmartX.Shared.Telemetry
     /// </summary>
     public static class BatchTelemetryProcessor
     {
-        public static List<TelemetryPacket<float>> ProcessRawBatches(string sensorId, float[][] rawBatches, string unit)
+        public static List<TelemetryPacket<T>> ProcessRawBatches<T>(string sensorId, T[][] rawBatches, string unit) where T : struct
         {
-            var packets = new List<TelemetryPacket<float>>();
+            var packets = new List<TelemetryPacket<T>>();
 
             // Walks through each bach of raw reading, one at a time
-            for (int batchIndex = 0; batchIndex < rawBatches.Length; batchIndex++)
+            for (int windowIndex = 0; windowIndex < rawBatches.Length; windowIndex++)
             {
 
                 // Grabs the raw reading for the current batch
-                float[] batch = rawBatches[batchIndex];
+                T[] window = rawBatches[windowIndex];
 
                 // Works out what timestamp this batch should start at (based on which batch it is and how many readings it has)
-                var batchStart = DateTimeOffset.UtcNow.AddSeconds(-(rawBatches.Length - batchIndex) * batch.Length);
+                var windowStart = DateTimeOffset.UtcNow.AddSeconds(-(rawBatches.Length - windowIndex) * window.Length);
 
                 // Pairs each raw reading in the batch with sensorId, unit, and a timestamp
                 // Adds the finished packet to the list
-                for (int sampleIndex = 0; sampleIndex < batch.Length; sampleIndex++)
+                for (int sampleIndex = 0; sampleIndex < window.Length; sampleIndex++)
                 {
-                    packets.Add(new TelemetryPacket<float>(
+                    packets.Add(new TelemetryPacket<T>(
                     sensorId,
-                    batch[sampleIndex],
+                    window[sampleIndex],
                     unit,
-                    batchStart.AddSeconds(sampleIndex)));
+                    windowStart.AddSeconds(sampleIndex)));
                 }
             }
 

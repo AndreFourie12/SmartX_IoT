@@ -11,6 +11,7 @@ namespace SmartX.Api.Data
     public sealed class TelemetryStore(IngestionRateTracker rateTracker)
     {
         private const int HistoryCapacity = 500;
+
         private readonly ConcurrentDictionary<string, TelemetryRingBuffer<ITelemetryPacket>> _buffers = new();
         private readonly ConcurrentDictionary<string, object> _locks = new();
 
@@ -40,7 +41,25 @@ namespace SmartX.Api.Data
         /// <summary>
         /// 
         /// </summary>
-        public void AddRange(string sensorId, List<TelemetryPacket<float>> packets)
+        public void AddRange(string sensorId, List<ITelemetryPacket> packets)
+        {
+            lock (LockFor(sensorId))
+            {
+                var buffer = BufferFor(sensorId);
+
+                foreach(var packet in packets)
+                {
+                    buffer.Add(packet);
+                }
+            }
+
+            rateTracker.Record(packets.Count);
+        }
+
+        /// <summary>
+        /// Generic overload for strongly-typed telemetry packets
+        /// </summary>
+        public void AddRange<T>(string sensorId, List<TelemetryPacket<T>> packets) where T : struct
         {
             lock (LockFor(sensorId))
             {

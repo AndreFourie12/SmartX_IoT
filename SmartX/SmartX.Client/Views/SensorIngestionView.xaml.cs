@@ -24,23 +24,14 @@ namespace SmartX.Client.Views
         private List<SensorDto> _allSensors = [];
         private List<DeploymentNode> _treeRoots = [];
 
-        /// <summary>
-        /// Path prefix the tree selection is filtering by; null means "show all".
-        /// </summary>
         private string? _scopePath;
 
-        /// <summary>
-        /// Set only when a device leaf is picked, to narrow the table to that one sensor.
-        /// Kept separate from <see cref="_selectedSensorId"/> so that selecting a device and then
-        /// clicking back up to a zone widens the table again instead of staying on one row.
-        /// </summary>
         private string? _deviceScopeId;
 
-
-        /// <summary>
-        /// Which row is highlighted, independent of what the table is filtered to
-        /// .</summary>
         private string? _selectedSensorId;
+
+        private LastBatch? _lastBatch;
+
 
         /// <summary>
         /// 
@@ -268,7 +259,7 @@ namespace SmartX.Client.Views
         {
             IEnumerable<SensorDto> visible = _allSensors;
 
-            if(_scopePath is not null)
+            if (_scopePath is not null)
                 visible = visible.Where(s => s.Location.StartsWith(_scopePath, StringComparison.OrdinalIgnoreCase));
 
             if (_deviceScopeId is not null)
@@ -277,13 +268,12 @@ namespace SmartX.Client.Views
             var ordered = visible.OrderBy(s => s.Id, StringComparer.Ordinal).ToList();
 
             _rows.Clear();
-
             foreach (var sensor in ordered)
                 _rows.Add(sensor);
 
             string scopeLabel = _deviceScopeId is not null
-            ? $"{_scopePath} / {_deviceScopeId}"
-            : _scopePath ?? "All facilities";
+                ? $"{_scopePath} / {_deviceScopeId}"
+                : _scopePath ?? "All facilities";
 
             ScopeText.Text = $"· {scopeLabel} · {ordered.Count} " + (ordered.Count == 1 ? "device" : "devices");
 
@@ -292,9 +282,25 @@ namespace SmartX.Client.Views
             if (_selectedSensorId is not null)
                 RestoreRowSelection();
 
+            UpdateBatchButton();
+
         }
         //----------------------------------------------------------//
 
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private void UpdateBatchButton()
+        {
+            var sensor = SensorsGrid.SelectedItem as SensorDto;
+
+            SimulateBatchButton.IsEnabled = sensor is not null;
+            SimulateBatchButton.ToolTip = sensor is null
+                ? "Select a sensor in the table above."
+                : $"Send {sensor.Id} a jagged {BatchShapeFor(sensor.Category)} batch of sampling windows.";
+        }
+        //----------------------------------------------------------//
 
 
         /// <summary>
@@ -349,20 +355,17 @@ namespace SmartX.Client.Views
         {
             try
             {
-                var history = await App.ApiClient.GetTelemetryAsync(sensorId, take: 40);
+                RenderLastBatch(sensorId);
 
-                TelemetryHistoryList.ItemsSource = history;
+                var history = await App.ApiClient.GetTelemetryAsync(sensorId, take: 40);
+                TelemetryHistoryList.ItemsSource = history.Select(ToRow).ToList();
                 TelemetryEmptyState.Visibility = history.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
                 var attachments = await App.ApiClient.GetAttachmentsAsync(sensorId);
-
                 AttachmentsList.ItemsSource = attachments
                     .Select(a => $"{a.FileName}  ({a.SizeBytes:N0} B)")
                     .ToList();
-
-                AttachmentsEmptyState.Visibility = attachments.Count 
-                    == 0 ? Visibility.Visible : Visibility.Collapsed;
-
+                AttachmentsEmptyState.Visibility = attachments.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
                 AttachmentsEmptyState.Text = "No attachments on this sensor yet.";
             }
             catch (Exception ex)
@@ -370,6 +373,20 @@ namespace SmartX.Client.Views
                 ActionStatusText.Text = $"Could not load sensor detail: {ex.Message}";
             }
         }
+        //----------------------------------------------------------//
+
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private TelemetryRow ToRow(TelemetryDto reading) =>
+            new(reading.TimestampUtc,
+                reading.Value,
+                reading.Unit,
+                _lastBatch is not null
+                    && _lastBatch.SensorId == reading.SensorId
+                    && _lastBatch.Timestamps.Contains(reading.TimestampUtc));
         //----------------------------------------------------------//
 
 
@@ -404,31 +421,48 @@ namespace SmartX.Client.Views
                 return;
             }
 
-            if (sensor.Category != SensorCategory.Environmental)
-            {
-                ActionStatusText.Text = "Batch simulation targets Environmental sensors (jagged float[][] sampling windows).";
-                return;
-            }
+            int readingsBefore = sensor.TelemetryReadingCount;
 
             var rng = Random.Shared;
             int windowCount = rng.Next(4, 8);
-            var windows = new float[windowCount][];
 
-            for (int w = 0; w < windowCount; w++)
+            var request = sensor.Category switch
             {
-                int sampleCount = rng.Next(2, 6);
-                windows[w] = new float[sampleCount];
-                for (int s = 0; s < sampleCount; s++)
-                    windows[w][s] = 35f + (float)rng.NextDouble() * 35f;
-            }
+                SensorCategory.Environmental => new BatchTelemetryIngestRequest(TelemetryDataType.Float,JaggedWindows(
+                    windowCount, () => 35f + (float)rng.NextDouble() * 35f),null, null,"%"),
+
+                SensorCategory.PowerConsumption => new BatchTelemetryIngestRequest(
+                    TelemetryDataType.Int, null,JaggedWindows(windowCount, () => 150 + rng.Next(-25, 25)),null,"W"),
+
+                _ => new BatchTelemetryIngestRequest(
+                    TelemetryDataType.Bool,null,null,JaggedWindows(windowCount, () => rng.NextDouble() < 0.5),string.Empty)
+            };
 
             try
             {
-                var response = await App.ApiClient.IngestBatchAsync(sensor.Id, new BatchTelemetryIngestRequest(windows, "%"));
-                ActionStatusText.Text = $"Ingested {response?.PacketsIngested ?? 0} readings from a {windowCount}-window jagged batch.";
+                var response = await App.ApiClient.IngestBatchAsync(sensor.Id, request);
+                if (response is null)
+                {
+                    ActionStatusText.Text = "The gateway accepted the batch but sent nothing back to show.";
+                    return;
+                }
 
                 await RefreshSensorsAsync();
+
+                _lastBatch = new LastBatch(
+                    sensor.Id,
+                    DateTimeOffset.Now,
+                    response.WindowSampleCounts,
+                    response.PacketsIngested,
+                    readingsBefore,
+                    _allSensors.FirstOrDefault(s => s.Id == sensor.Id)?.TelemetryReadingCount ?? readingsBefore,
+                    response.IngestedReadings.Select(r => r.TimestampUtc).ToHashSet());
+
                 await LoadSensorDetailAsync(sensor.Id);
+
+                ActionStatusText.Text =
+                    $"{sensor.Id} · ingested {response.PacketsIngested} readings from a {response.WindowCount}-window " +
+                    $"jagged {BatchShapeFor(sensor.Category)} batch.";
             }
             catch (Exception ex)
             {
@@ -437,6 +471,54 @@ namespace SmartX.Client.Views
         }
         //----------------------------------------------------------//
 
+        private static T[][] JaggedWindows<T>(int windowCount, Func<T> nextSample) where T : struct
+        {
+            var windows = new T[windowCount][];
+
+            for (int w = 0; w < windowCount; w++)
+            {
+                windows[w] = new T[Random.Shared.Next(2, 6)];
+
+                for (int s = 0; s < windows[w].Length; s++)
+                    windows[w][s] = nextSample();
+            }
+
+            return windows;
+        }
+
+        private static string BatchShapeFor(SensorCategory category) => category switch
+        {
+            SensorCategory.Environmental => "float[][]",
+            SensorCategory.PowerConsumption => "int[][]",
+            _ => "bool[][]"
+        };
+
+
+        private void RenderLastBatch(string sensorId)
+        {
+            if (_lastBatch is not { } batch || batch.SensorId != sensorId)
+            {
+                LastBatchStrip.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            LastBatchSummary.Text = $"{batch.RanAtLocal:HH:mm:ss} · {batch.WindowSampleCounts.Length} windows";
+
+            int added = batch.ReadingsAfter - batch.ReadingsBefore;
+            bool rolledOut = added < batch.PacketsIngested;
+
+            LastBatchCountJump.Text = rolledOut
+                ? $"readings {batch.ReadingsBefore} → {batch.ReadingsAfter} (+{batch.PacketsIngested}, buffer full)"
+                : $"readings {batch.ReadingsBefore} → {batch.ReadingsAfter} (+{batch.PacketsIngested} from this batch)";
+
+            LastBatchCountJump.ToolTip = rolledOut
+                ? $"{batch.PacketsIngested} readings were ingested, but this sensor's history is at capacity - the oldest rolled out of the ring buffer to make room."
+                : added > batch.PacketsIngested
+                    ? $"{batch.PacketsIngested} of the {added} readings added came from this batch; the rest is the background simulation."
+                    : $"All {added} readings added came from this batch.";
+
+            LastBatchStrip.Visibility = Visibility.Visible;
+        }
 
 
         /// <summary>
@@ -587,7 +669,19 @@ namespace SmartX.Client.Views
             }
         }
         //----------------------------------------------------------//
+
+
+        private sealed record LastBatch(
+            string SensorId,
+            DateTimeOffset RanAtLocal,
+            int[] WindowSampleCounts,
+            int PacketsIngested,
+            int ReadingsBefore,
+            int ReadingsAfter,
+            HashSet<DateTimeOffset> Timestamps);
     }
+
+    public sealed record TelemetryRow(DateTimeOffset TimestampUtc, string Value, string Unit, bool FromBatch);
 }
 
 

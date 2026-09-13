@@ -15,14 +15,14 @@ namespace SmartX.Api.Endpoints
         {
             var group = app.MapGroup("/api/sensors/{id}/telemetry").WithTags("Telemetry");
 
-
-
-            //
             group.MapPost("/", (string id, TelemetryIngestRequest request, SensorRepository sensors, TelemetryStore telemetry) =>
             {
                 if (!sensors.TryGet(id, out _))
-                    return Results.NotFound($"No sensor registered with id '{id}'");
+                    return Results.NotFound($"No sensor registered with id '{id}'.");
 
+                // The DataType discriminator picks which closed TelemetryPacket<T> to build -
+                // the only place a runtime "which type?" decision is needed; every downstream
+                // consumer works through the ITelemetryPacket interface only.
                 ITelemetryPacket packet = request.DataType switch
                 {
                     TelemetryDataType.Float when request.FloatValue is { } f => new TelemetryPacket<float>(id, f, request.Unit),
@@ -32,26 +32,47 @@ namespace SmartX.Api.Endpoints
                 };
 
                 telemetry.Add(id, packet);
-
                 return Results.Ok(ToDto(packet));
             })
             .Produces<TelemetryDto>()
             .Produces(StatusCodes.Status404NotFound);
 
-
-            //
             group.MapPost("/batch", (string id, BatchTelemetryIngestRequest request, SensorRepository sensors, TelemetryStore telemetry) =>
             {
                 if (!sensors.TryGet(id, out _))
-                    return Results.NotFound($"No sensor registered with id '{id}");
+                    return Results.NotFound($"No sensor registered with id '{id}'.");
 
-                var packets = BatchTelemetryProcessor.ProcessRawBatches(id, request.Windows, request.Unit);
-                telemetry.AddRange(id, packets);
+                BatchResult? result = request.DataType switch
+                {
+                    TelemetryDataType.Float when request.FloatWindows is { } windows => Ingest(windows),
+                    TelemetryDataType.Int when request.IntWindows is { } windows => Ingest(windows),
+                    TelemetryDataType.Bool when request.BoolWindows is { } windows => Ingest(windows),
+                    _ => null
+                };
 
-                return Results.Ok(new BatchTelemetryIngestResponse(packets.Count));
-            });
+                if (result is not { } batch)
+                    return Results.BadRequest($"A {request.DataType} batch must populate its matching window array.");
 
-            //
+                return Results.Ok(new BatchTelemetryIngestResponse(
+                    batch.PacketsIngested,
+                    batch.WindowSampleCounts,
+                    batch.IngestedReadings));
+
+                BatchResult Ingest<T>(T[][] windows) where T : struct
+                {
+                    var packets = BatchTelemetryProcessor.ProcessRawBatches(id, windows, request.Unit);
+                    telemetry.AddRange(id, packets);
+
+                    return new BatchResult(
+                        packets.Count,
+                        windows.Select(window => window.Length).ToArray(),
+                        packets.Select(ToDto).ToList());
+                }
+            })
+            .Produces<BatchTelemetryIngestResponse>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
+
             group.MapGet("/", (string id, int? take, SensorRepository sensors, TelemetryStore telemetry) =>
             {
                 if (!sensors.TryGet(id, out _))
@@ -61,26 +82,30 @@ namespace SmartX.Api.Endpoints
                 return Results.Ok(recent);
             });
         }
-        //----------------------------------------------------------//
-
 
         /// <summary>
-        /// 
+        /// One closed generic's worth of batch work, so the three <c>Ingest&lt;T&gt;</c> branches can
+        /// return the same shape without the value type leaking into the response.
         /// </summary>
+        private readonly record struct BatchResult(
+            int PacketsIngested,
+            int[] WindowSampleCounts,
+            List<TelemetryDto> IngestedReadings);
+
         private static TelemetryDto ToDto(ITelemetryPacket packet) =>
             new(packet.SensorId, packet.TimestampUtc, Round(packet.ValueAsString), packet.Unit);
-        //----------------------------------------------------------//
-
 
         /// <summary>
-        /// 
+        /// Trims a float reading to two decimals for display. Stored telemetry keeps its full
+        /// precision - this only affects what the dashboard is sent, so the table doesn't show
+        /// values like "62.56176". Ints and bools pass through untouched.
         /// </summary>
         private static string Round(string value) =>
             double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double number)
                 ? number.ToString("0.##", CultureInfo.InvariantCulture)
                 : value;
-        //----------------------------------------------------------//
     }
+
 }
 
 //------------------------------------------- End Of File -------------------------------------------//

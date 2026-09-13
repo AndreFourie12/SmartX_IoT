@@ -78,7 +78,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="290" />
+                <RowDefinition Height="322" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
@@ -106,7 +106,6 @@
                                    Foreground="{StaticResource StatusGreenDot}"
                                    HorizontalAlignment="Right" Margin="0,0,0,5" />
 
-                        <!-- Alerts are plain strings straight from the API - no wrapper type. -->
                         <ItemsControl x:Name="AlertsList" HorizontalAlignment="Right">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -162,8 +161,6 @@
                                                 BorderThickness="1" CornerRadius="4" Padding="9,3"
                                                 HorizontalAlignment="Left">
                                             <StackPanel Orientation="Horizontal">
-                                                <!-- Colour picked straight from the bound value, so no converter
-                                                     or wrapper class is needed just to tint a dot. -->
                                                 <Ellipse x:Name="Dot" Width="7" Height="7" VerticalAlignment="Center"
                                                          Margin="0,0,7,0" Fill="#8B5CF6" />
                                                 <TextBlock Text="{Binding Category}" FontSize="12"
@@ -208,16 +205,52 @@
 
                 <Border Grid.Column="0" Style="{StaticResource Card}">
                     <DockPanel Margin="20,16,20,16">
-                        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                             <TextBlock Text="Telemetry Readings" Style="{StaticResource SectionTitle}" />
                             <Button x:Name="SimulateBatchButton" Content="Simulate Batch"
                                     Style="{StaticResource PrimaryButton}" Padding="14,7"
-                                    HorizontalAlignment="Right" Click="OnSimulateBatchClick" />
+                                    HorizontalAlignment="Right" IsEnabled="False"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    ToolTip="Select a sensor in the table above."
+                                    Click="OnSimulateBatchClick" />
                         </Grid>
+
+                        <Border x:Name="LastBatchStrip" DockPanel.Dock="Top" Visibility="Collapsed"
+                                Background="{StaticResource AccentBlueSoft}" CornerRadius="5"
+                                Padding="11,7" Margin="0,0,0,10">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,5">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="LAST BATCH" FontSize="9.5" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AccentBlue}"
+                                                   VerticalAlignment="Center" Margin="0,0,9,0" />
+                                        <TextBlock x:Name="LastBatchSummary" FontSize="12"
+                                                   Foreground="{StaticResource TextPrimary}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="LastBatchCountJump" HorizontalAlignment="Right"
+                                               VerticalAlignment="Center" FontWeight="Bold"
+                                               FontFamily="{StaticResource MonoFont}" FontSize="11.5"
+                                               Foreground="{StaticResource AccentBlue}" />
+                                </Grid>
+
+
+
+                            </StackPanel>
+                        </Border>
 
                         <Grid>
                             <ListView x:Name="TelemetryHistoryList" BorderThickness="0" Background="Transparent"
                                       ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding FromBatch}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource AccentBlueSoft}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListView.ItemContainerStyle>
                                 <ListView.View>
                                     <GridView>
                                         <GridViewColumn Header="Time" Width="150"
@@ -226,6 +259,24 @@
                                                         DisplayMemberBinding="{Binding Value}" />
                                         <GridViewColumn Header="Unit" Width="80"
                                                         DisplayMemberBinding="{Binding Unit}" />
+                                        <GridViewColumn Header="Source" Width="82">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="BatchTag" Visibility="Collapsed"
+                                                            Background="{StaticResource AccentBlue}"
+                                                            CornerRadius="3" Padding="6,1"
+                                                            HorizontalAlignment="Left">
+                                                        <TextBlock Text="batch" FontSize="10" FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource TextOnDark}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding FromBatch}" Value="True">
+                                                            <Setter TargetName="BatchTag" Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
                                     </GridView>
                                 </ListView.View>
                             </ListView>
@@ -300,4 +351,5 @@
         </Grid>
     </Grid>
 </UserControl>
+
 

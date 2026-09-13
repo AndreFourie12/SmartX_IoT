@@ -80,7 +80,7 @@ namespace SmartX.Client.Services
         /// </summary>
         public async Task<BatchTelemetryIngestResponse?> IngestBatchAsync(string sensorId, BatchTelemetryIngestRequest request, CancellationToken ct = default)
         {
-            var response = await _http.PostAsJsonAsync($"/api/sensors/sensor/telemetry/batch", request);
+            var response = await _http.PostAsJsonAsync($"/api/sensors/{sensorId}/telemetry/batch", request, JsonOptions, ct);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<BatchTelemetryIngestResponse>(JsonOptions, ct);
         }

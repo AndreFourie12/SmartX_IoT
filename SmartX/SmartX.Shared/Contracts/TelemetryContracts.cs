@@ -40,7 +40,10 @@ namespace SmartX.Shared.Contracts
     /// Client -> API
     /// </summary>
     public sealed record BatchTelemetryIngestRequest(
-        float[][] Windows, 
+        TelemetryDataType DataType,
+        float[][]? FloatWindows,
+        int[][]? IntWindows,
+        bool[][]? BoolWindows,
         string Unit);
     //----------------------------------------------------------//
 
@@ -52,7 +55,12 @@ namespace SmartX.Shared.Contracts
     /// API -> Client
     /// </summary>
     public sealed record BatchTelemetryIngestResponse(
-        int PacketsIngested);
+        int PacketsIngested,
+        int[] WindowSampleCounts,
+        List<TelemetryDto> IngestedReadings)
+    {
+        public int WindowCount => WindowSampleCounts.Length;
+    }
     //----------------------------------------------------------//
 
 }
