@@ -1,26 +1,101 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using SmartX.Shared.Contracts;
+using SmartX.Shared.Models;
 
 namespace SmartX.Client.Dialogs
 {
     /// <summary>
     /// Interaction logic for AddSensorDialog.xaml
     /// </summary>
-    public partial class AddSensorDialog : Page
+    public partial class AddSensorDialog : Window
     {
+        private static readonly Regex MacAddressPattern =
+            new("^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$", RegexOptions.Compiled);
+
+        private static readonly Regex NodeIdentifierPattern =
+            new("^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$", RegexOptions.Compiled);
+
+        public SensorDto? RegisteredSensor { get; private set; }
+
+
+
+        /// <summary>
+        /// 
+        /// </summary>
         public AddSensorDialog()
         {
             InitializeComponent();
+            Loaded += (_, _) => IdentifierBox.SelectAll();
         }
+        //----------------------------------------------------------//
+
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private async void OnRegisterClick(object sender, RoutedEventArgs e)
+        {
+            string identifier = IdentifierBox.Text.Trim();
+
+            if(!MacAddressPattern.IsMatch(identifier) && !NodeIdentifierPattern.IsMatch(identifier))
+            {
+                ShowError("Enter a MAC address (24:6F:28:AA:BB:CC) or a node identifier (ESP32-ENV-04).");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(FacilityBox.Text) || string.IsNullOrWhiteSpace(ZoneBox.Text))
+            {
+                ShowError("Facility and Zone are required.");
+                return;
+            }
+
+            var segments = new[] { FacilityBox.Text.Trim(), ZoneBox.Text.Trim(), SubZoneBox.Text.Trim() }
+                .Where(segment => !string.IsNullOrWhiteSpace(segment));
+
+            string location = string.Join("/", segments);
+
+            var category = Enum.Parse<SensorCategory>(((ComboBoxItem)CategoryCombo.SelectedItem).Content.ToString()!);
+
+            try
+            {
+                RegisterButton.IsEnabled = false;
+
+                RegisteredSensor = await App.ApiClient.RegisterSensorAsync(
+                    new SensorRegistrationRequest(identifier, location, category));
+
+                DialogResult = true;
+            }
+            catch (Exception ex)
+            {
+                RegisterButton.IsEnabled = true;
+                ShowError(ex.Message);
+            }
+        }
+        //----------------------------------------------------------//
+
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private void ShowError(string message)
+        {
+            ErrorText.Text = message;
+            ErrorText.Visibility = Visibility.Visible;
+        }
+        //----------------------------------------------------------//
+
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private void OnCancelClick(object sender, RoutedEventArgs e) => DialogResult = false;
+        //----------------------------------------------------------//
     }
 }
+
+//------------------------------------------- End Of File -------------------------------------------//

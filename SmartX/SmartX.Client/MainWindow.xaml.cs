@@ -12,6 +12,11 @@ namespace SmartX.Client
     {
         private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(3) };
 
+
+
+        /// <summary>
+        /// 
+        /// </summary>
         public MainWindow()
         {
             InitializeComponent();
@@ -25,7 +30,13 @@ namespace SmartX.Client
                 _statusTimer.Start();
             };
         }
+        //----------------------------------------------------------//
 
+
+
+        /// <summary>
+        /// 
+        /// </summary>
         private async Task RefreshGatewayStatusAsync()
         {
             try
@@ -47,6 +58,7 @@ namespace SmartX.Client
                 ThroughputText.Text = "start SmartXApp.Api";
             }
         }
+        //----------------------------------------------------------//
     }
 }
 

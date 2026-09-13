@@ -1,14 +1,69 @@
-﻿<Page x:Class="SmartX.Client.Dialogs.AddSensorDialog"
-      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-      xmlns:local="clr-namespace:SmartX.Client.Dialogs"
-      mc:Ignorable="d" 
-      d:DesignHeight="450" d:DesignWidth="800"
-      Title="AddSensorDialog">
+﻿<Window x:Class="SmartX.Client.Dialogs.AddSensorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Register Sensor" Height="560" Width="470"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource PageBackground}" FontFamily="Segoe UI">
+    <Window.Resources>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+            <Setter Property="Margin" Value="0,14,0,5" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="9,8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="BorderBrush" Value="{StaticResource CardBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Padding" Value="9,8" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+    </Window.Resources>
 
-    <Grid>
-        
-    </Grid>
-</Page>
+    <Border Style="{StaticResource Card}" Margin="16">
+        <DockPanel Margin="22,18,22,18">
+            <StackPanel DockPanel.Dock="Top">
+                <TextBlock Text="Register Sensor" FontSize="18" FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimary}" />
+                <TextBlock Text="Add a node to the Smart-X mesh and place it in the deployment hierarchy."
+                           Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                <TextBlock Text="MAC Address / Unique Identifier" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="IdentifierBox" Text="24:6F:28:AA:BB:CC"
+                         FontFamily="{StaticResource MonoFont}" />
+
+                <TextBlock Text="Facility" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="FacilityBox" Text="Facility A" />
+
+                <TextBlock Text="Zone" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="ZoneBox" Text="Zone 1" />
+
+                <TextBlock Text="Sub-Zone / Node" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="SubZoneBox" Text="Sub-Zone A" />
+
+                <TextBlock Text="Sensor Category" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="CategoryCombo" SelectedIndex="0">
+                    <ComboBoxItem Content="Environmental" />
+                    <ComboBoxItem Content="PowerConsumption" />
+                    <ComboBoxItem Content="Actuator" />
+                </ComboBox>
+
+                <TextBlock x:Name="ErrorText" Foreground="{StaticResource StatusRed}" FontSize="12"
+                           TextWrapping="Wrap" Margin="0,14,0,0" Visibility="Collapsed" />
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                        HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                <Button Content="Cancel" Style="{StaticResource SecondaryButton}"
+                        Padding="18,9" Click="OnCancelClick" />
+                <Button x:Name="RegisterButton" Content="Register Sensor" Style="{StaticResource PrimaryButton}"
+                        Margin="10,0,0,0" Click="OnRegisterClick" />
+            </StackPanel>
+
+            <Grid />
+        </DockPanel>
+    </Border>
+</Window>
+
