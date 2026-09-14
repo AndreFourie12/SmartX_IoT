@@ -44,7 +44,6 @@
   <li><a href="#where-to-find-each-technical-requirement">Where to find each technical requirement</a></li>
   <li><a href="#architecture-notes">Architecture Notes</a></li>
   <li><a href="#video-demonstration">Video Demonstration</a></li>
-  <li><a href="#references">References</a></li>
 </ol>
 
 
@@ -228,7 +227,7 @@ https://youtu.be/gwcMaRGh6Yg
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-## References 
+
 
 
 
