@@ -27,9 +27,13 @@ namespace SmartX.Shared.Validation
 
         /// <summary>
         /// Checks if a piece of text is written in the correct format for a MAC address
+        /// or a node identifier
         /// </summary>
         [GeneratedRegex("^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")]
         private static partial Regex MacAddressPattern();
+
+        [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$")]
+        private static partial Regex NodeIdentifierPattern();
         //----------------------------------------------------------//
 
 
@@ -70,8 +74,11 @@ namespace SmartX.Shared.Validation
             // Checks if node is a leaf, stops descending if it is.
             if (node.NodeType == DeploymentNodeType.Device)
             {
-                if (string.IsNullOrWhiteSpace(node.DeviceMacAddress) || !MacAddressPattern().IsMatch(node.DeviceMacAddress))
-                    errors.Add($"{path}: device node requires a valid MAC address (e.g. 24:6F:28:AA:BB:CC).");
+                if (depth != RequiredDeviceDepth)
+                    errors.Add($"{path}: device nodes must be at exactly 3 levels deep (Facility → Zone → SubZone → Device). {DescribeDepth(depth)}.");
+
+                if (string.IsNullOrWhiteSpace(node.DeviceMacAddress) || !(MacAddressPattern().IsMatch(node.DeviceMacAddress) || NodeIdentifierPattern().IsMatch(node.DeviceMacAddress)))
+                    errors.Add($"{path}: device node requires a valid MAC address or node identifier (e.g. 24:6F:28:AA:BB:CC or ESP32-ENV-04).");
 
                 if (node.Children.Count > 0)
                     errors.Add($"{path}: device nodes cannot contain child nodes.");
@@ -97,7 +104,8 @@ namespace SmartX.Shared.Validation
 
 
         /// <summary>
-        /// 
+        /// Turns a depth number into wording a person can read, such as at the root or directly under a zone.
+        /// Used to make the device nesting error message clearer.
         /// </summary>
         private static string DescribeDepth(int depth) => depth switch
         {

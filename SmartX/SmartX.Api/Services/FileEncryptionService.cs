@@ -3,7 +3,8 @@
 namespace SmartX.Api.Services
 {
     /// <summary>
-    /// 
+    /// Encrypts uploaded attachments before they touch the disk and decrypts them again on download.
+    /// Uses one AES-256 key generated at startup, so stored files are only readable for the lifetime of the API process.
     /// </summary>
     public sealed class FileEncryptionService
     {
@@ -12,7 +13,8 @@ namespace SmartX.Api.Services
 
 
         /// <summary>
-        /// 
+        /// Encrypts the incoming stream with AES and writes it to the destination path.
+        /// The generated IV is written to the front of the file so the same file can be decrypted later, and the size on disk is returned.
         /// </summary>
         public async Task<long> EncryptToFileAsync(Stream source, string destinationPath, CancellationToken ct = default)
         {
@@ -34,7 +36,8 @@ namespace SmartX.Api.Services
 
 
         /// <summary>
-        /// 
+        /// Reads the IV off the front of the stored file and uses it to decrypt the rest.
+        /// Returns the plain content as a rewound MemoryStream, ready to hand straight back to the client.
         /// </summary>
         public async Task<Stream> DecryptFromFileAsync(string sourcePath, CancellationToken ct = default)
         {

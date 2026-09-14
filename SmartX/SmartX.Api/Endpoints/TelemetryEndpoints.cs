@@ -7,7 +7,8 @@ using System.Globalization;
 namespace SmartX.Api.Endpoints
 {
     /// <summary>
-    /// 
+    /// Defines every HTTP route for telemetry.
+    /// Covers ingesting a single reading, ingesting a jagged batch of sampling windows, and reading back a sensor's recent history.
     /// </summary>
     public static class TelemetryEndpoints
     {
@@ -20,9 +21,6 @@ namespace SmartX.Api.Endpoints
                 if (!sensors.TryGet(id, out _))
                     return Results.NotFound($"No sensor registered with id '{id}'.");
 
-                // The DataType discriminator picks which closed TelemetryPacket<T> to build -
-                // the only place a runtime "which type?" decision is needed; every downstream
-                // consumer works through the ITelemetryPacket interface only.
                 ITelemetryPacket packet = request.DataType switch
                 {
                     TelemetryDataType.Float when request.FloatValue is { } f => new TelemetryPacket<float>(id, f, request.Unit),

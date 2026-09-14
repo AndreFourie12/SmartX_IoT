@@ -13,7 +13,8 @@
 
 
         /// <summary>
-        /// 
+        /// Logs that a number of readings just arrived, stamping them into the bucket for the current second.
+        /// A bucket holding a second that has fallen outside the window is reset before it is reused.
         /// </summary>
         public void Record(int count = 1)
         {
@@ -36,7 +37,8 @@
 
 
         /// <summary>
-        /// 
+        /// Adds up every bucket still inside the ten second window and averages it out.
+        /// Returns the result rounded to one decimal so the nav bar can show it as msg/s.
         /// </summary>
         public double MessagesPerSecond()
         {

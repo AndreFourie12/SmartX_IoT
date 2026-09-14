@@ -4,7 +4,8 @@ using SmartX.Shared.Contracts;
 namespace SmartX.Api.Services
 {
     /// <summary>
-    /// 
+    /// Builds the health snapshot shown by the dashboard's Telemetry Pulse widget.
+    /// Works out a score from how many sensors have gone quiet and tracks how many consecutive checks came back clean.
     /// </summary>
     public sealed class EngagementService(SensorRepository sensors, TelemetryStore telemetry)
     {
@@ -14,7 +15,8 @@ namespace SmartX.Api.Services
 
 
         /// <summary>
-        /// 
+        /// Checks every registered sensor for a recent reading and raises an alert for any that are silent or have never reported.
+        /// Turns those alerts into a percentage health score, updates the clean streak, and returns the whole snapshot. 
         /// </summary>
         public EngagementSummaryDto BuildSummary()
         {

@@ -35,7 +35,8 @@ namespace SmartX.Shared.Collections
 
 
         /// <summary>
-        /// 
+        /// Writes an item into the next slot and grows the count until the buffer is full.
+        /// Once at capacity it advances the start index instead, so the oldest item is overwritten.
         /// </summary>
         public void Add(T item)
         {

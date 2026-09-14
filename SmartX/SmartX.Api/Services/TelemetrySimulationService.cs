@@ -4,6 +4,10 @@ using SmartX.Shared.Telemetry;
 
 namespace SmartX.Api.Services
 {
+    /// <summary>
+    /// Background service that stands in for real hardware.
+    /// Seeds mock sensors and history when the API starts, then keeps producing live readings so the dashboard always has something to show.
+    /// </summary>
     public sealed class TelemetrySimulationService(SensorRepository sensors, TelemetryStore telemetry, ILogger<TelemetrySimulationService> logger) : BackgroundService
     {
         private const double PacketDropChance = 0.25;
@@ -15,7 +19,8 @@ namespace SmartX.Api.Services
 
 
         /// <summary>
-        /// 
+        /// Background loop that seeds mock sensors and history at startup, then generates a fresh round of readings every three seconds.
+        /// A seeding failure stops the service, while a failed tick is logged and the loop carries on.
         /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
@@ -58,7 +63,8 @@ namespace SmartX.Api.Services
 
 
         /// <summary>
-        /// 
+        /// Registers the fixed set of environmental, power and actuator sensors used for the demo.
+        /// Locations are handed out in rotation so the deployment tree ends up with more than one branch.
         /// </summary>
         private void SeedSensors()
         {
@@ -87,7 +93,7 @@ namespace SmartX.Api.Services
 
 
         /// <summary>
-        /// 
+        /// Adds a single sensor to the repository with the given id, category and location, stamped with the current time.
         /// </summary>
         private void Register(string id, SensorCategory category, string location)
         {
@@ -104,7 +110,8 @@ namespace SmartX.Api.Services
 
 
         /// <summary>
-        /// 
+        /// Gives every sensor some starting history so the dashboard is not empty on first load.
+        /// Environmental sensors get jagged float batches through the batch processor, while power and actuator sensors get simple individual readings.
         /// </summary>
         private void SeedHistoricalBatches()
         {
@@ -142,7 +149,8 @@ namespace SmartX.Api.Services
 
 
         /// <summary>
-        /// 
+        /// Produces one round of fresh readings across every sensor.
+        /// Each sensor has a random chance of being skipped, which imitates packet loss on a real mesh.
         /// </summary>
         private void GenerateLiveTick()
         {
@@ -173,7 +181,12 @@ namespace SmartX.Api.Services
         //----------------------------------------------------------//
 
 
+        /// <summary>
+        /// Random chance that a reading is dropped on this tick, imitating packet loss.
+        /// </summary>
         private static bool PacketDropped() => Rng.NextDouble() < PacketDropChance;
     }
 
 }
+
+//------------------------------------------- End Of File -------------------------------------------//

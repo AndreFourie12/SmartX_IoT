@@ -23,7 +23,8 @@ namespace SmartX.Api.Data
 
 
         /// <summary>
-        /// 
+        /// Appends a single packet to that sensor's ring buffer, locking per sensor so two threads never write at once.
+        /// Also tells the rate tracker that one more reading came through. 
         /// </summary>
         public void Add(string sensorId, ITelemetryPacket packet)
         {
@@ -39,7 +40,8 @@ namespace SmartX.Api.Data
 
 
         /// <summary>
-        /// 
+        /// Appends a whole list of packets under a single lock instead of locking once per reading.
+        /// Records the full count with the rate tracker afterwards.
         /// </summary>
         public void AddRange(string sensorId, List<ITelemetryPacket> packets)
         {
@@ -78,7 +80,8 @@ namespace SmartX.Api.Data
 
 
         /// <summary>
-        /// 
+        /// Returns up to take readings for a sensor, newest first.
+        /// An unknown sensor id gives back an empty list rather than throwing. 
         /// </summary>
         public List<ITelemetryPacket> GetRecent(string sensorId, int take)
         {
@@ -105,7 +108,8 @@ namespace SmartX.Api.Data
 
 
         /// <summary>
-        /// 
+        /// Reports how many readings are currently held for a sensor.
+        /// Returns zero if that sensor has no buffer yet.
         /// </summary>
         public int CountFor(string sensorId) 
             => _buffers.TryGetValue(sensorId, out var buffer) ? buffer.Count : 0;

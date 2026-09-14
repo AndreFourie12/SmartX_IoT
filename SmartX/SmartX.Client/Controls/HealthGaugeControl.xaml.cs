@@ -17,7 +17,8 @@ namespace SmartX.Client.Controls
 
 
         /// <summary>
-        /// 
+        /// Dependency property backing Score, so the gauge can be set or bound from XAML.
+        /// Redraws the gauge whenever the value changes.
         /// </summary>
         public static readonly DependencyProperty ScoreProperty = DependencyProperty.Register(
             nameof(Score), typeof(int), typeof(HealthGaugeControl),
@@ -26,7 +27,8 @@ namespace SmartX.Client.Controls
 
 
         /// <summary>
-        /// 
+        /// The health percentage the gauge is currently showing, from 0 to 100.
+        /// Setting it goes through the dependency property, which triggers a redraw.
         /// </summary>
         public int Score
         {
@@ -38,7 +40,8 @@ namespace SmartX.Client.Controls
 
 
         /// <summary>
-        /// 
+        /// Builds the control and draws the gauge once its visual tree has loaded.
+        /// Drawing on Loaded avoids touching arcs that do not exist yet.
         /// </summary>
         public HealthGaugeControl()
         {
@@ -50,7 +53,8 @@ namespace SmartX.Client.Controls
 
 
         /// <summary>
-        /// 
+        /// Called by WPF whenever the Score property changes.
+        /// Casts the sender back to the gauge and asks it to redraw.
         /// </summary>
         private static void OnScoreChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
             ((HealthGaugeControl)d).Redraw();
@@ -58,7 +62,8 @@ namespace SmartX.Client.Controls
 
 
         /// <summary>
-        /// 
+        /// Rebuilds both the grey track arc and the coloured score arc from the current Score.
+        /// Also updates the number in the middle and recolours everything to match the score band.
         /// </summary>
         private void Redraw()
         {
@@ -79,8 +84,9 @@ namespace SmartX.Client.Controls
 
 
 
-        /// <summary>
-        /// 
+        //// <summary>
+        /// Builds the path geometry for an arc sweeping the given number of degrees from the gauge's start angle.
+        /// The large arc flag is set once the sweep passes 180 degrees so the curve bends the right way.
         /// </summary>
         private static Geometry BuildArcGeometry(double sweepDegrees)
         {
@@ -105,7 +111,8 @@ namespace SmartX.Client.Controls
 
 
         /// <summary>
-        /// 
+        /// Converts an angle in degrees into the point sitting on the gauge's circle at that angle.
+        /// Used to work out where an arc should start and end.
         /// </summary>
         private static Point PointOnCircle(double angleDegrees)
         {
@@ -116,7 +123,8 @@ namespace SmartX.Client.Controls
 
 
         /// <summary>
-        /// 
+        /// Picks the colour band for a score, green from 80, amber from 50, and red below that.
+        /// Used for both the arc and the number in the middle.
         /// </summary>
         private static Color ColorForScore(int score) => score switch
         {

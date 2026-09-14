@@ -34,7 +34,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Builds the view and binds the sensor grid to its row collection.
+        /// Wires up a three second timer that keeps the engagement panel refreshed.
         /// </summary>
         public SensorIngestionView()
         {
@@ -49,7 +50,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Runs once the view has loaded, pulling in the sensor list and the engagement summary.
+        /// Starts the live timer only after that first load has finished.
         /// </summary>
         public async void OnLoadedAsync(object sender, RoutedEventArgs e)
         {
@@ -61,7 +63,7 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Re-fetches the sensor list when the refresh button is clicked.
         /// </summary>
         private async void OnRefreshClick(object sender, RoutedEventArgs e) 
             => await RefreshSensorsAsync();
@@ -70,7 +72,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Pulls the full sensor list from the gateway, rebuilds the hierarchy tree, and re-applies the current scope filter.
+        /// A connection failure is reported in the status line instead of bringing down the view.
         /// </summary>
         private async Task RefreshSensorsAsync()
         {
@@ -88,7 +91,10 @@ namespace SmartX.Client.Views
         //----------------------------------------------------------//
 
 
-
+        // <summary>
+        /// Turns each sensor's location path into a facility, zone and sub-zone hierarchy, adding the sensor itself as a device leaf.
+        /// Rolls the device counts back up the tree and rebinds the result to the tree view.
+        /// </summary>
         private void BuildTree()
         {
             _treeRoots = [];
@@ -139,11 +145,13 @@ namespace SmartX.Client.Views
             HierarchyTree.ItemsSource = null;
             HierarchyTree.ItemsSource = _treeRoots;
         }
+        //----------------------------------------------------------//
 
 
 
         /// <summary>
-        /// 
+        /// Recursively totals how many devices sit under a node and stores the result on that node.
+        /// A device node counts as one and stops the descent.
         /// </summary>
         private static int CountDevices(DeploymentNode node)
         {
@@ -161,7 +169,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Maps a position in the location path to a tree level.
+        /// The first segment becomes a facility, the second a zone, and anything deeper a sub-zone.
         /// </summary>
         private static DeploymentNodeType NodeTypeForDepth(int depth) => depth switch
         {
@@ -174,7 +183,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Handles a node being picked in the deployment tree.
+        /// Picking a device scopes the grid to that one sensor, while picking a facility, zone or sub-zone scopes it to everything beneath that path.
         /// </summary>
         private void OnHierarchySelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
@@ -200,7 +210,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Works out the full location path of a node by searching each root until the node is found.
+        /// Returns null if the node is not in the tree.
         /// </summary>
         private string? PathTo(DeploymentNode target)
         {
@@ -218,7 +229,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Recursive helper that walks down from a node looking for the target, building the path as it goes.
+        /// Returns the path once the target is reached, or null if this branch does not contain it.
         /// </summary>
         private static string? FindPath(DeploymentNode node, DeploymentNode target, string pathSoFar)
         {
@@ -240,7 +252,7 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Clears both the path and device filters so the grid shows every sensor again.
         /// </summary>
         private void OnShowAllClick(object sender, RoutedEventArgs e)
         {
@@ -253,7 +265,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Filters the sensor list down to the current scope and refills the grid with the result.
+        /// Also updates the scope label, restores the previously selected row, and refreshes the batch button state.
         /// </summary>
         private void ApplyScope()
         {
@@ -289,7 +302,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Enables the simulate batch button only while a sensor is selected.
+        /// Sets the tooltip to describe the array shape that sensor's category will produce.
         /// </summary>
         private void UpdateBatchButton()
         {
@@ -304,7 +318,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Remembers a sensor as the selected one and selects its row in the grid.
+        /// Used after registering a new sensor so it is highlighted straight away.
         /// </summary>
         private void SelectSensorRow(string sensorId)
         {
@@ -316,7 +331,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Re-selects the remembered sensor's row after the grid has been refilled and scrolls it into view.
+        /// Does nothing if that sensor falls outside the current scope.
         /// </summary>
         private void RestoreRowSelection()
         {
@@ -333,7 +349,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Handles a row being selected in the sensor grid.
+        /// Updates the status line and loads that sensor's telemetry history and attachments.
         /// </summary>
         private async void OnSensorSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -349,7 +366,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Fills the detail panels for one sensor with its last batch summary, recent telemetry, and attachments.
+        /// Empty state messages are shown where there is nothing to display, and failures are reported in the status line.
         /// </summary>
         private async Task LoadSensorDetailAsync(string sensorId)
         {
@@ -378,7 +396,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Converts a telemetry reading into the row shape the history list binds to.
+        /// Flags the row when its timestamp came from the most recent simulated batch so it can be highlighted.
         /// </summary>
         private TelemetryRow ToRow(TelemetryDto reading) =>
             new(reading.TimestampUtc,
@@ -392,7 +411,7 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Opens the add sensor dialog and, if a sensor was registered, refreshes the list and selects the new row.
         /// </summary>
         private async void OnAddSensorClick(object sender, RoutedEventArgs e)
         {
@@ -411,7 +430,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Builds a jagged batch of sampling windows matching the selected sensor's category and sends it to the gateway.
+        /// Records what the batch did to the reading count, then refreshes the sensor list and detail panels to show the result.
         /// </summary>
         private async void OnSimulateBatchClick(object sender, RoutedEventArgs e)
         {
@@ -471,6 +491,12 @@ namespace SmartX.Client.Views
         }
         //----------------------------------------------------------//
 
+
+
+        /// <summary>
+        /// Builds a jagged array of sampling windows, each holding a random number of samples from the given generator.
+        /// The uneven lengths are what make the batch genuinely jagged.
+        /// </summary>
         private static T[][] JaggedWindows<T>(int windowCount, Func<T> nextSample) where T : struct
         {
             var windows = new T[windowCount][];
@@ -485,14 +511,25 @@ namespace SmartX.Client.Views
 
             return windows;
         }
+        //----------------------------------------------------------//
 
+
+        /// <summary>
+        /// Returns the array shape a sensor category's batch will use, for the status line and tooltip.
+        /// </summary>
         private static string BatchShapeFor(SensorCategory category) => category switch
         {
             SensorCategory.Environmental => "float[][]",
             SensorCategory.PowerConsumption => "int[][]",
             _ => "bool[][]"
         };
+        //----------------------------------------------------------//
 
+
+        /// <summary>
+        /// Shows the summary strip for the most recent simulated batch on this sensor, or hides it if the last batch belonged to another sensor.
+        /// The tooltip explains whether the jump in reading count came from this batch or from the ring buffer rolling over.
+        /// </summary>
 
         private void RenderLastBatch(string sensorId)
         {
@@ -519,10 +556,13 @@ namespace SmartX.Client.Views
 
             LastBatchStrip.Visibility = Visibility.Visible;
         }
+        //----------------------------------------------------------//
+
 
 
         /// <summary>
-        /// 
+        /// Asks the user to pick a file and uploads it against the selected sensor, where the API encrypts it at rest.
+        /// Refreshes the attachment list afterwards and reports any failure in the status line.
         /// </summary>
         private async void OnAttachFileClick(object sender, RoutedEventArgs e)
         {
@@ -559,7 +599,8 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// 
+        /// Sends the deployment tree to the API for recursive validation.
+        /// Turns the result into either a green valid badge or a red badge listing every offending node.
         /// </summary>
         private async void OnValidateHierarchyClick(object sender, RoutedEventArgs e)
         {
@@ -595,6 +636,11 @@ namespace SmartX.Client.Views
         //----------------------------------------------------------//
 
 
+
+        /// <summary>
+        /// Polls the engagement summary and updates the health gauge, clean streak and alert list.
+        /// A dropped poll is ignored on purpose, since the next tick retries and the nav bar reports a genuinely down gateway.
+        /// </summary>
         private async Task RefreshEngagementAsync()
         {
             try
@@ -622,11 +668,12 @@ namespace SmartX.Client.Views
                 // the next tick retries, and the nav bar's connection strip is what reports a genuinely down gateway.
             }
         }
+        //----------------------------------------------------------//
 
         /// <summary>
-        /// 
+        /// Takes the latest reading from the first two power meters and adds them together using the PowerReading operator.
+        /// Shows both meters and the combined total in the aggregation panel, and quietly does nothing if there are fewer than two meters.
         /// </summary>
-        /// <returns></returns>
         private async void RefreshMeterAggregation()
         {
             var meters = _allSensors
@@ -671,6 +718,9 @@ namespace SmartX.Client.Views
         //----------------------------------------------------------//
 
 
+        /// <summary>
+        /// Snapshot of the last simulated batch on one sensor, kept so the detail panel can describe what it changed.
+        /// </summary>
         private sealed record LastBatch(
             string SensorId,
             DateTimeOffset RanAtLocal,
@@ -679,9 +729,15 @@ namespace SmartX.Client.Views
             int ReadingsBefore,
             int ReadingsAfter,
             HashSet<DateTimeOffset> Timestamps);
+        //----------------------------------------------------------//
     }
 
+
+    /// <summary>
+    /// Row shape the telemetry history list binds to, with a flag marking readings that came from the last batch.
+    /// </summary>
     public sealed record TelemetryRow(DateTimeOffset TimestampUtc, string Value, string Unit, bool FromBatch);
+    //----------------------------------------------------------//
 }
 
 

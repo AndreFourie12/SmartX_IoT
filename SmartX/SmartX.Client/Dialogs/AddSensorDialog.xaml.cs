@@ -22,7 +22,7 @@ namespace SmartX.Client.Dialogs
 
 
         /// <summary>
-        /// 
+        /// Builds the dialog and pre-selects the identifier text so the user can type straight over it.
         /// </summary>
         public AddSensorDialog()
         {
@@ -34,7 +34,8 @@ namespace SmartX.Client.Dialogs
 
 
         /// <summary>
-        /// 
+        /// Validates the identifier and location fields, then joins facility, zone and sub-zone into a single location path.
+        /// Posts the new sensor to the API and closes the dialog on success, or shows the reason inline if it fails.
         /// </summary>
         private async void OnRegisterClick(object sender, RoutedEventArgs e)
         {
@@ -79,7 +80,7 @@ namespace SmartX.Client.Dialogs
 
 
         /// <summary>
-        /// 
+        /// Puts a message into the dialog's error label and makes it visible.
         /// </summary>
         private void ShowError(string message)
         {
@@ -91,7 +92,7 @@ namespace SmartX.Client.Dialogs
 
 
         /// <summary>
-        /// 
+        /// Closes the dialog without registering anything.
         /// </summary>
         private void OnCancelClick(object sender, RoutedEventArgs e) => DialogResult = false;
         //----------------------------------------------------------//

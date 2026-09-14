@@ -15,7 +15,8 @@ namespace SmartX.Client
 
 
         /// <summary>
-        /// 
+        /// Sets up the window and drops the sensor ingestion view into the main content area.
+        /// Starts a three second timer that keeps the gateway status strip up to date.
         /// </summary>
         public MainWindow()
         {
@@ -35,7 +36,8 @@ namespace SmartX.Client
 
 
         /// <summary>
-        /// 
+        /// Asks the API for its current status and updates the connection dot and throughput text.
+        /// Any failure is treated as the gateway being unreachable, which is exactly what this check is meant to detect.
         /// </summary>
         private async Task RefreshGatewayStatusAsync()
         {
@@ -51,8 +53,6 @@ namespace SmartX.Client
             }
             catch
             {
-                // Reaching the endpoint at all is the connection test, so a failure here is
-                // exactly what "disconnected" means - surface it rather than swallowing it.
                 ConnectionDot.Fill = (Brush)FindResource("StatusRed");
                 ConnectionText.Text = "Gateway unreachable";
                 ThroughputText.Text = "start SmartXApp.Api";

@@ -6,12 +6,18 @@ using SmartX.Api.Services;
 namespace SmartX.Api.Endpoints
 {
     /// <summary>
-    /// 
+    /// Defines the HTTP routes for sensor file attachments.
+    /// Covers uploading a file, listing what is attached to a sensor, and downloading one back out. 
     /// </summary>
     public static class AttachmentEndpoints
     {
         private static readonly string UploadsRoot = Path.Combine(AppContext.BaseDirectory, "App_Data", "uploads");
 
+
+        /// <summary>
+        /// Registers the attachment routes under the sensor group, covering upload, list and download.
+        /// Uploaded files are encrypted before they are written to disk and decrypted again on the way back out.
+        /// </summary>
         public static void MapAttachmentEndpoints(this IEndpointRouteBuilder app)
         {
             var group = app.MapGroup("/api/sensors/{id}/attachments").WithTags("Attachments");
@@ -90,7 +96,8 @@ namespace SmartX.Api.Endpoints
 
 
         /// <summary>
-        /// 
+        /// Converts a stored SensorAttachment into the DTO the client receives.
+        /// Leaves out StorageFileName on purpose so the on-disk blob name is never exposed.
         /// </summary>
         private static AttachmentDto ToDto(SensorAttachment attachment) => new(
         attachment.Id,
