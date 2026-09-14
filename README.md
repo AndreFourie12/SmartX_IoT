@@ -108,6 +108,59 @@ Part 2 and the final PoE.
   
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+
+### What to try in the demo
+
+**Navigate the fleet with the tree.** Selecting any node scopes the sensor table to
+everything beneath it, and the breadcrumb follows:
+
+| Click | Breadcrumb | Table shows |
+|---|---|---|
+| `Facility A` | `· Facility A · 8 devices` | all 8 |
+| `Zone 1` | `· Facility A / Zone 1 · 6 devices` | 6 |
+| `Sub-Zone A` | `· … / Sub-Zone A · 3 devices` | 3 |
+| a device leaf | `· … / ESP32-ENV-01 · 1 device` | that one, and loads its readings |
+
+*Show all* clears the filter. Each node shows how many devices sit beneath it. The tree is
+built client-side from the sensor list the dashboard has already loaded, so there is no
+second API call behind it.
+
+- **Add Sensor** opens the registration modal. It accepts either a MAC address
+  (`24:6F:28:AA:BB:CC`) or a node identifier (`ESP32-ENV-04`) and rejects anything else before a network call is
+  made. The new sensor appears in both the table and the tree immediately.
+- **Validate Hierarchy** runs the recursive validator over the *live* deployment tree and
+  reports `Valid` or the specific misconfigured nodes. To see it fail, register a sensor
+  and leave **Sub-Zone blank** ,  that places the device directly under a zone, and the
+  validator reports the full offending path:
+  `Facility A -> Zone 3 -> ESP32-ORPHAN-09: device sits directly under a zone but must be
+  deployed under a full Facility -> Zone -> Sub-Zone path.`
+- **Attach File** (with a device selected) opens a native file picker; whatever you pick is
+  streamed to the API, AES-256 encrypted before it touches disk, and immediately
+  downloadable again, decrypted, from the same panel.
+- **Simulate Batch** sends a raw jagged-array batch to
+  `POST /api/sensors/{id}/telemetry/batch` in whatever type the selected device measures, 
+  `float[][]` windows of humidity, `int[][]` windows of watts, `bool[][]` windows of valve
+  state, and the panel above the readings shows what the
+  gateway made of it: the sampling windows it parsed, one chip per window, plus the reading
+  count on either side of the ingest with the batch's own share called out. The readings it
+  produced are tagged `batch` and tinted in the list below. The window chips and the tags
+  both come back from the API rather than from the array the client sent, which is what
+  makes them evidence the round trip happened and they are what separates your batch from
+  the background simulation, which is ingesting into the same sensors every 3 seconds.
+- The **Telemetry Pulse** header is the dynamic engagement feature: a hand-drawn arc
+  gauge, a clean-sweep streak counter, and a dropout alert feed, all repolled every 3
+  seconds. The simulation deliberately drops ~25% of packets, so the score genuinely
+  moves as nodes go quiet and come back rather than sitting at a fixed value.
+- The **top-right connection strip** is live, not decorative: measured ingestion
+  throughput (msg/s) and the gateway process's own uptime. Stop the API and it turns red.
+- **Smart Meter Aggregation** combines two live power meters using the overloaded
+  `PowerReading + PowerReading` operator.
+
+  
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+  
+
 ## Where to find each technical requirement
 | Requirement | Implementation |
 |---|---|
