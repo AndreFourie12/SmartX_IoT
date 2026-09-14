@@ -55,6 +55,7 @@ This project is a .NET 10 solution simulating the Smart-X IoT ingestion gateway:
 for registering sensors, simulating telemetry, and monitoring mesh health, backed by
 an ASP.NET Core Web API that ingests, stores, and validates that telemetry.
 
+
 ### Research Task
 
 The research part of the project can be found here ->  [View the research paper](ST10438312_PROG7312_Part_1_Research.pdf)
@@ -115,7 +116,7 @@ In a second terminal:
 dotnet run --project SmartX.Client
 ```
 
-The client talks to `http://localhost:5224` (hardcoded in `SmartXApp.Client/App.xaml.cs`
+The client talks to `http://localhost:5224` (hardcoded in `SmartX.Client/App.xaml.cs`
 change `ApiBaseAddress` there if you run the API on a different port). From the
 landing page, select **"Sensor Data Ingestion & Telemetry"** in the left sidebar; the
 other two pillars are intentionally disabled with a tooltip explaining they arrive in
@@ -189,16 +190,16 @@ second API call behind it.
 ## Where to find each technical requirement
 | Requirement | Implementation |
 |---|---|
-| Generics (`TelemetryPacket<T>`) | [`SmartXApp.Shared/Telemetry/TelemetryPacket.cs`](SmartXApp.Shared/Telemetry/TelemetryPacket.cs) - constrained to `struct`, so float/int/bool readings are never boxed to `object`; the API picks the closed generic in [`TelemetryEndpoints.cs`](SmartXApp.Api/Endpoints/TelemetryEndpoints.cs). |
-| Operator overloading | [`SmartXApp.Shared/Telemetry/PowerReading.cs`](SmartXApp.Shared/Telemetry/PowerReading.cs) - a non-generic struct overloading `+`, `-`, `<`, `>`, `==` etc. Used in [`SensorIngestionView.xaml.cs`](SmartXApp.Client/Views/SensorIngestionView.xaml.cs) to combine two live meters (`readings[0] + readings[1]`). |
-| Jagged arrays | Jagged `T[][]` batches in [`BatchTelemetryProcessor.cs`](SmartXApp.Shared/Telemetry/BatchTelemetryProcessor.cs) - variable-length sampling windows, transferred straight into a `List<TelemetryPacket<T>>`. Generic over the sample type and constrained to `struct`, so one method serves float, int and bool windows without boxing; the batch endpoint picks the closed generic from the request's `TelemetryDataType`. |
-| Recursion | [`DeploymentValidator.cs`](SmartXApp.Shared/Validation/DeploymentValidator.cs) recursively walks the deployment tree (Facility → Zone → Sub-Zone → Device) confirming every device is a leaf at the bottom of a full path, with a depth guard against runaway/cyclic input. The tree it walks is built from the **real** registered sensors (see below), not a fixed sample. |
-| API integration layer | ASP.NET Core Minimal API, [`SmartXApp.Api/Endpoints/`](SmartXApp.Api/Endpoints), all async; consumed by [`SmartXApiClient.cs`](SmartXApp.Client/Services/SmartXApiClient.cs) over `HttpClient`. |
-| Sensor payload management | Registration modal [`AddSensorDialog.xaml.cs`](SmartXApp.Client/Dialogs/AddSensorDialog.xaml.cs) (MAC/identifier, facility, zone, sub-zone, category) → `POST /api/sensors` → stored as a `SensorDevice` in [`SensorRepository.cs`](SmartXApp.Api/Data/SensorRepository.cs). |
+| Generics (`TelemetryPacket<T>`) | [`SmartX.Shared/Telemetry/TelemetryPacket.cs`](SmartX.Shared/Telemetry/TelemetryPacket.cs) - constrained to `struct`, so float/int/bool readings are never boxed to `object`; the API picks the closed generic in [`TelemetryEndpoints.cs`](SmartX.Api/Endpoints/TelemetryEndpoints.cs). |
+| Operator overloading | [`SmartX.Shared/Telemetry/PowerReading.cs`](SmartX.Shared/Telemetry/PowerReading.cs) - a non-generic struct overloading `+`, `-`, `<`, `>`, `==` etc. Used in [`SensorIngestionView.xaml.cs`](SmartX.Client/Views/SensorIngestionView.xaml.cs) to combine two live meters (`readings[0] + readings[1]`). |
+| Jagged arrays | Jagged `T[][]` batches in [`BatchTelemetryProcessor.cs`](SmartX.Shared/Telemetry/BatchTelemetryProcessor.cs) - variable-length sampling windows, transferred straight into a `List<TelemetryPacket<T>>`. Generic over the sample type and constrained to `struct`, so one method serves float, int and bool windows without boxing; the batch endpoint picks the closed generic from the request's `TelemetryDataType`. |
+| Recursion | [`DeploymentValidator.cs`](SmartX.Shared/Validation/DeploymentValidator.cs) recursively walks the deployment tree (Facility → Zone → Sub-Zone → Device) confirming every device is a leaf at the bottom of a full path, with a depth guard against runaway/cyclic input. The tree it walks is built from the **real** registered sensors (see below), not a fixed sample. |
+| API integration layer | ASP.NET Core Minimal API, [`SmartX.Api/Endpoints/`](SmartX.Api/Endpoints), all async; consumed by [`SmartXApiClient.cs`](SmartX.Client/Services/SmartXApiClient.cs) over `HttpClient`. |
+| Sensor payload management | Registration modal [`AddSensorDialog.xaml.cs`](SmartX.Client/Dialogs/AddSensorDialog.xaml.cs) (MAC/identifier, facility, zone, sub-zone, category) → `POST /api/sensors` → stored as a `SensorDevice` in [`SensorRepository.cs`](SmartX.Api/Data/SensorRepository.cs). |
 | Hierarchy navigation | `BuildTree()` in [`SensorIngestionView.xaml.cs`](SmartXApp.Client/Views/SensorIngestionView.xaml.cs) splits each sensor's `Location` path into nested `DeploymentNode`s and counts devices bottom-up; selecting a node prefix-filters the sensor table to that subtree. The same tree is posted to `POST /api/deployment/validate`, so one tree serves both display and validation. |
-| Media/log attachment | `OpenFileDialog` in the ingestion view → multipart upload handled by [`AttachmentEndpoints.cs`](SmartXApp.Api/Endpoints/AttachmentEndpoints.cs), AES-256 encrypted by [`FileEncryptionService.cs`](SmartXApp.Api/Services/FileEncryptionService.cs) before it touches disk, and decrypted on download. |
-| Dynamic engagement feature | "Telemetry Pulse" widget - [`EngagementService.cs`](SmartXApp.Api/Services/EngagementService.cs) derives a health score, a clean-sweep streak, and dropout alerts from live telemetry timestamps; rendered by the hand-drawn arc gauge [`HealthGaugeControl`](SmartXApp.Client/Controls/HealthGaugeControl.xaml.cs) (deliberately not a `ProgressBar`) plus the streak counter and alert feed beside it. |
-| Collections + custom data structure | [`TelemetryStore.cs`](SmartXApp.Api/Data/TelemetryStore.cs) pairs the two: storage is the custom [`TelemetryRingBuffer<T>`](SmartXApp.Shared/Collections/TelemetryRingBuffer.cs) (fixed-capacity circular buffer, O(1) eviction, bounds memory under load), while everything crossing its boundary is a standard `List<T>`. |
+| Media/log attachment | `OpenFileDialog` in the ingestion view → multipart upload handled by [`AttachmentEndpoints.cs`](SmartX.Api/Endpoints/AttachmentEndpoints.cs), AES-256 encrypted by [`FileEncryptionService.cs`](SmartX.Api/Services/FileEncryptionService.cs) before it touches disk, and decrypted on download. |
+| Dynamic engagement feature | "Telemetry Pulse" widget - [`EngagementService.cs`](SmartX.Api/Services/EngagementService.cs) derives a health score, a clean-sweep streak, and dropout alerts from live telemetry timestamps; rendered by the hand-drawn arc gauge [`HealthGaugeControl`](SmartX.Client/Controls/HealthGaugeControl.xaml.cs) (deliberately not a `ProgressBar`) plus the streak counter and alert feed beside it. |
+| Collections + custom data structure | [`TelemetryStore.cs`](SmartX.Api/Data/TelemetryStore.cs) pairs the two: storage is the custom [`TelemetryRingBuffer<T>`](SmartX.Shared/Collections/TelemetryRingBuffer.cs) (fixed-capacity circular buffer, O(1) eviction, bounds memory under load), while everything crossing its boundary is a standard `List<T>`. |
 
 
 
