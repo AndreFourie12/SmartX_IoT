@@ -1,0 +1,65 @@
+<Project>
+
+  <!--
+    Applies to every project in the solution: MSBuild walks up from each .csproj until it finds
+    this file, so SmartX.Api, SmartX.Client and SmartX.Shared all pick it up.
+
+    THE PROBLEM THIS SOLVES
+
+    Downloading this repository as a ZIP from GitHub and extracting it with Explorer nests the
+    folder inside itself:
+
+        Downloads\...-andrefourie12-main\...-andrefourie12-main\SmartX\SmartX.Client\
+
+    That is 163 characters before the build writes anything. WPF's XAML compilation then spins
+    up a temporary project and writes intermediate files such as
+
+        SmartX.Client_s3k4a1vj_wpftmp.GeneratedMSBuildEditorConfig.editorconfig
+
+    which is 71 characters of filename on its own. Add the obj\Debug\net10.0-windows\ folders
+    and the path reaches 261 - past Windows' 260-character MAX_PATH - and the build fails with
+    "Could not find a part of the path ...". `dotnet build` survives it because the .NET SDK's
+    MSBuild is long-path aware; Visual Studio's MSBuild.exe is not, so it looks like an IDE bug.
+
+    WHY THE INTERMEDIATES HAVE TO LEAVE THE FOLDER
+
+    Shortening obj\ inside the project cannot fix it. The markup-compile pass hands its own
+    IntermediateOutputPath to the temporary project, so "Debug\net10.0-windows\" comes back
+    whatever this file says. 163 + 22 forced + 71 filename leaves nothing to trim.
+
+    So when - and only when - the project sits too deep to build safely, the intermediates go to
+    a short fixed root instead, where the path length depends on the user's account name rather
+    than on how deeply the repository was extracted. That brings the same file down to about 160
+    characters.
+
+    The 140-character threshold: a project directory can afford
+    "\obj\Debug\net10.0-windows\" (27) plus a 71-character filename and still stay under 260, so
+    anything up to about 161 is safe. 140 leaves room to spare. A normal clone is far below it
+    and keeps the ordinary obj\ folder beside the project, exactly as before - this only changes
+    behaviour for checkouts that would otherwise fail outright.
+
+    Only obj moves. bin\ is untouched, so the built .exe stays where you expect it.
+
+    The hash of the project directory stops two checkouts of this repository from sharing one
+    intermediate folder and overwriting each other's build state.
+  -->
+
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT' and '$(LOCALAPPDATA)' != '' and $(MSBuildProjectDirectory.Length) &gt; 140">
+    <BaseIntermediateOutputPath>$(LOCALAPPDATA)\SmartX-build\$([MSBuild]::StableStringHash($(MSBuildProjectDirectory)))\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      Required whenever obj\ is redirected above. The SDK normally excludes the intermediate
+      folder from compilation by deriving the exclusion from BaseIntermediateOutputPath; once
+      that points elsewhere, any obj\ folder left behind by an earlier build stops being
+      excluded, and the .cs files the SDK generated in it (AssemblyInfo.cs and friends) get
+      compiled a second time - "error CS0579: Duplicate ... attribute".
+
+      Stated explicitly, so a stale obj\ folder is ignored in either mode and switching between
+      them never needs a manual clean.
+    -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj\**;bin\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+</Project>
