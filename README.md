@@ -52,16 +52,6 @@ This project is a .NET 10 solution simulating the Smart-X IoT ingestion gateway:
 for registering sensors, simulating telemetry, and monitoring mesh health, backed by
 an ASP.NET Core Web API that ingests, stores, and validates that telemetry.
 
-**Solution layout**
-
-```
-SmartXApp.slnx
-├── SmartXApp.Shared/    Class library: generics, operator overloading, recursion,
-│                        custom collections, and the DTOs shared by API + client
-├── SmartXApp.Api/       ASP.NET Core Minimal API - the ingestion gateway
-└── SmartXApp.Client/    WPF desktop client - the configuration dashboard
-```
-
 
 ### Prerequisites 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
