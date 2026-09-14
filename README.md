@@ -102,7 +102,7 @@ follows the simulation.
 Only the API is containerised. The client is a WPF desktop app and a container has no display
 surface to put a window on, so step 3 below is the same either way. The gateway keeps its
 sensors and telemetry in memory by design, so restarting the container reseeds it from scratch
-exactly as restarting `dotnet run` does - there is no volume, and nothing to clean up.
+exactly as restarting `dotnet run` does.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
