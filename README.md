@@ -50,6 +50,9 @@
 
 ## Project Overview
 
+The research part of the project can be found here 
+[View the research paper](ST10438312_PROG7312_Part_1_Research.pdf)
+
 This project is a .NET 10 solution simulating the Smart-X IoT ingestion gateway: a WPF desktop client
 for registering sensors, simulating telemetry, and monitoring mesh health, backed by
 an ASP.NET Core Web API that ingests, stores, and validates that telemetry.
