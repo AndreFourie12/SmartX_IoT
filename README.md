@@ -38,6 +38,8 @@
       <li><a href="#start-the-WPF-client">Start the WPF client</a></li>
     </ul>
   </li>
+  <li><a href="#layout">layout</a></li>
+  <li><a href="#what-to-try">What to try</a></li>
   <li><a href="#where-to-find-each-technical-requirement">Where to find each technical requirement</a></li>
   <li><a href="#architecture-notes">Architecture Notes</a></li>
   <li><a href="#video-demonstration">Video Demonstration</a></li>
@@ -109,7 +111,7 @@ Part 2 and the final PoE.
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-### What to try in the demo
+### What to try
 
 **Navigate the fleet with the tree.** Selecting any node scopes the sensor table to
 everything beneath it, and the breadcrumb follows:
