@@ -1,0 +1,27 @@
+# Runs the Smart-X gateway in a container. The WPF client is a Windows desktop app and is not
+# containerised - a container has no display surface to put a window on - so start it from
+# Visual Studio or with `dotnet run --project SmartX.Client` while this is up.
+#
+#   docker compose up --build     build and start the gateway
+#   docker compose down           stop it
+#   docker compose logs -f        follow the simulation's output
+#
+# The gateway keeps everything in memory on purpose (SensorRepository, TelemetryStore and the
+# ring buffer), reseeding mock sensors and telemetry at startup, so a restart is a clean slate.
+# No volume is declared deliberately: uploaded attachments are encrypted to disk, but the
+# records describing them live in the same in-memory registry, so keeping the files across a
+# restart would only leave blobs the API can no longer list or decrypt. Restarting the
+# container therefore behaves exactly like restarting the API from Visual Studio.
+
+services:
+  smartx-api:
+    build:
+      context: .
+      dockerfile: SmartX.Api/Dockerfile
+    ports:
+      # The host port matches the base address hardcoded in SmartX.Client/App.xaml.cs, so the
+      # client cannot tell whether the gateway is running in Docker or from Visual Studio.
+      - "5224:8080"
+    environment:
+      # Program.cs only maps the OpenAPI document in Development.
+      - ASPNETCORE_ENVIRONMENT=Development

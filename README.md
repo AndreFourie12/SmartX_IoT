@@ -86,6 +86,24 @@ This boots the gateway on **http://localhost:5224** and
 immediately seeds 8 mock sensors with historical telemetry, then keeps generating new
 live readings every 3 seconds. Leave this running in its own terminal.
 
+#### Or in a container
+
+From the `SmartX` folder, instead of the command above:
+
+```bash
+docker compose up --build
+```
+
+Same gateway, same address: the container listens on 8080 internally and compose maps it to
+**5224** on the host, which is the address the client already has hardcoded, so the client
+cannot tell the difference. `docker compose down` stops it and `docker compose logs -f`
+follows the simulation.
+
+Only the API is containerised. The client is a WPF desktop app and a container has no display
+surface to put a window on, so step 3 below is the same either way. The gateway keeps its
+sensors and telemetry in memory by design, so restarting the container reseeds it from scratch
+exactly as restarting `dotnet run` does - there is no volume, and nothing to clean up.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
@@ -94,7 +112,7 @@ live readings every 3 seconds. Leave this running in its own terminal.
 In a second terminal:
 
 ```bash
-dotnet run --project SmartXA.Client
+dotnet run --project SmartX.Client
 ```
 
 The client talks to `http://localhost:5224` (hardcoded in `SmartXApp.Client/App.xaml.cs`

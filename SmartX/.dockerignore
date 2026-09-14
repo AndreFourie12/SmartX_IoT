@@ -1,0 +1,23 @@
+# Everything here is either rebuilt inside the image or irrelevant to it. Keeping it out of
+# the build context makes builds faster and stops a host build's output from leaking into the
+# container - a Windows obj/ folder copied into a Linux image is a good way to get confusing
+# restore errors.
+
+**/bin/
+**/obj/
+**/.vs/
+
+# WPF desktop app: cannot run in a container, and the API does not reference it.
+SmartX.Client/
+
+# Attachments written by a host run of the API. The container keeps its own in a volume.
+**/App_Data/
+
+# Local developer settings, never part of an image.
+**/*.user
+**/*.slnLaunch.user
+
+# Docker's own files do not need to be inside the context they describe.
+.dockerignore
+docker-compose.yml
+**/Dockerfile
