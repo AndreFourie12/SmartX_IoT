@@ -50,9 +50,7 @@
 
 ## Project Overview
 
-The research part of the project can be found here -> 
-
-[View the research paper](ST10438312_PROG7312_Part_1_Research.pdf)
+The research part of the project can be found here ->  [View the research paper](ST10438312_PROG7312_Part_1_Research.pdf)
 
 
 
