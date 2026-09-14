@@ -1,4 +1,4 @@
-<h3 align="center">SmartX</h3>
+<h3 align="center">SmartX Part 1</h3>
   <p align="center">
     PROG7312 Repo for SmartX, a application for monitoring and managing distributed environments
     <br />
@@ -68,7 +68,9 @@ The research part of the project can be found here ->  [View the research paper]
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Running the build
-
+Can be done in terminal, which is shown below, OR by going to startup configuration, 
+selecting multiple startup projects and setting both SmartX.Api and SmartX.Client to
+startup projects
 
 ### 1. Restore and Build everything
 ```bash
