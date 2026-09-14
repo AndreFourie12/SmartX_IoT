@@ -86,11 +86,6 @@ This boots the gateway on **http://localhost:5224** and
 immediately seeds 8 mock sensors with historical telemetry, then keeps generating new
 live readings every 3 seconds. Leave this running in its own terminal.
 
-Optional: run it in Docker instead (same port, no SDK required on the host):
-
-```bash
-docker compose up --build
-```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
