@@ -60,8 +60,6 @@ an ASP.NET Core Web API that ingests, stores, and validates that telemetry.
 
 The research part of the project can be found here ->  [View the research paper](ST10438312_PROG7312_Part_1_Research.pdf)
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 
 ### Prerequisites 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
