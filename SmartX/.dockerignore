@@ -10,6 +10,9 @@
 # WPF desktop app: cannot run in a container, and the API does not reference it.
 SmartX.Client/
 
+# Unit tests run on the host with `dotnet test`; the image only needs the API.
+SmartX.Tests/
+
 # Attachments written by a host run of the API. The container keeps its own in a volume.
 **/App_Data/
 

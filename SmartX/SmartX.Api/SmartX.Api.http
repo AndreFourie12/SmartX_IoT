@@ -1,0 +1,126 @@
+# Smart-X gateway - ready-made requests for testing Part 2.
+# Open this file in Visual Studio 2022+ (or VS Code with the REST Client extension) while the API is
+# running and click "Send request" above any block. Every request below is also described in the README.
+
+@gateway = http://localhost:5224
+
+### ------------------------------------------------------------------------------------------------
+### 1. QUEUES - Queue<T> routine lane vs PriorityQueue alert lane
+### ------------------------------------------------------------------------------------------------
+
+### A normal reading: lands in the FIFO routine queue (receipt says "lane": "Routine")
+POST {{gateway}}/api/sensors/ESP32-PWR-02/telemetry
+Content-Type: application/json
+
+{ "dataType": "Int", "intValue": 152, "unit": "W" }
+
+### SIMULATE A HIGH-PRIORITY ALERT: a severe power spike (>= 400 W) is routed to the priority lane
+### and bypasses everything waiting in the routine queue ("lane": "Alert", "severity": "Critical")
+POST {{gateway}}/api/sensors/ESP32-PWR-02/telemetry
+Content-Type: application/json
+
+{ "dataType": "Int", "intValue": 870, "unit": "W" }
+
+### A critical moisture drop (< 20%) on a hydroponics soil probe - also takes the priority lane
+POST {{gateway}}/api/sensors/ESP32-SOIL-01/telemetry
+Content-Type: application/json
+
+{ "dataType": "Float", "floatValue": 12.5, "unit": "%" }
+
+### Build a backlog first: the simulated fleet floods 1,200 buffered readings at once,
+### with one severe spike hidden halfway through. Then watch the pipeline below.
+POST {{gateway}}/api/simulator/storm?packets=1200
+
+### Queue depths, average waits per lane, and how many packets the last alert jumped
+GET {{gateway}}/api/stream/pipeline
+
+### The event history - look for "viaPriorityLane": true and "bypassed": <n>
+GET {{gateway}}/api/stream/history?take=20
+
+
+### ------------------------------------------------------------------------------------------------
+### 2. STACK - manual override commands with Undo
+### ------------------------------------------------------------------------------------------------
+
+### "Shut down all valves" - one command, every valve recorded on the undo stack
+POST {{gateway}}/api/stream/commands
+Content-Type: application/json
+
+{ "action": "TurnOff", "scope": "AllValves" }
+
+### Trigger a water pump
+POST {{gateway}}/api/stream/commands
+Content-Type: application/json
+
+{ "action": "TurnOn", "scope": "Device", "deviceId": "ESP32-PMP-01" }
+
+### Undo (pops the stack; LIFO)
+POST {{gateway}}/api/stream/commands/undo
+
+### The device shadow the simulated actuators poll for their desired state
+GET {{gateway}}/api/stream/shadow
+
+
+### ------------------------------------------------------------------------------------------------
+### 3. DICTIONARY / SORTED DICTIONARY - O(1) device lookup and time-ordered timelines
+### ------------------------------------------------------------------------------------------------
+
+### Register a device by MAC address in any spelling - it is normalised to one dictionary key
+POST {{gateway}}/api/sensors
+Content-Type: application/json
+
+{ "id": "24-6f-28-aa-bb-cc", "location": "Facility A / Grow Room / NFT Channel 3", "category": "Valve", "displayName": "Valve 3" }
+
+### The same device, a different spelling - 409 Conflict, because it is the same key
+POST {{gateway}}/api/sensors
+Content-Type: application/json
+
+{ "id": "24:6F:28:AA:BB:CC", "location": "Facility A / Grow Room / NFT Channel 3", "category": "Valve" }
+
+### A reading stamped 40 seconds in the past arrives late - the SortedDictionary files it in order
+POST {{gateway}}/api/sensors/ESP32-ENV-01/telemetry
+Content-Type: application/json
+
+{ "dataType": "Float", "floatValue": 61.5, "unit": "%", "timestampUtc": "{{$datetime iso8601 -40 s}}" }
+
+### A device's timeline over the last 5 minutes, already sorted by timestamp ("selectedTimeline" in the snapshot)
+GET {{gateway}}/api/stream/snapshot?selected=ESP32-SOIL-02&minutes=5
+
+
+### ------------------------------------------------------------------------------------------------
+### 4. SEARCH / FILTER - category and alert-state index sets
+### ------------------------------------------------------------------------------------------------
+
+### Pumps and valves that are currently Critical or Offline (union within a group, intersection across)
+GET {{gateway}}/api/stream/devices?category=WaterPump&category=Valve&alert=Critical&alert=Offline
+
+### Free-text search (the text, in any case, anywhere in the name, ID, location or category)
+GET {{gateway}}/api/stream/devices?q=bay%202
+
+### Log a search for the suggestion engine to learn from
+POST {{gateway}}/api/stream/searches
+Content-Type: application/json
+
+{ "query": "Moisture Sensor B" }
+
+
+### ------------------------------------------------------------------------------------------------
+### 5. HASHSET - unique active faults and disconnected nodes
+### ------------------------------------------------------------------------------------------------
+
+### Cut power to one node for 30 seconds. Expect ONE "went offline" event, then
+### "duplicatesSuppressed" climbing on every health sweep until it reconnects.
+POST {{gateway}}/api/simulator/outage/ESP32-ENV-03?seconds=30
+
+### Active faults, disconnected nodes, and the running count of suppressed duplicates
+GET {{gateway}}/api/stream/alerts
+
+
+### ------------------------------------------------------------------------------------------------
+### 6. PREDICTIVE ACTION ENGINE
+### ------------------------------------------------------------------------------------------------
+
+### Everything the dashboard draws, in one response - "insights" holds the ranked suggestions
+### and "patterns" the strongest learned condition -> operator response patterns
+GET {{gateway}}/api/stream/snapshot?selected=ESP32-SOIL-02&minutes=5
+
