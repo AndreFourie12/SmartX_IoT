@@ -163,6 +163,7 @@
                         </MultiTrigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Foreground" Value="{StaticResource TextOnDarkDim}" />
+                            <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -259,6 +260,286 @@
         <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="IsExpanded" Value="True" />
+    </Style>
+
+    <!-- ============================ Part 2: Command Stream ============================ -->
+    <SolidColorBrush x:Key="StatusRedSoft" Color="#FEF2F2" />
+    <SolidColorBrush x:Key="StatusRedBorder" Color="#FECACA" />
+    <SolidColorBrush x:Key="StatusRedText" Color="#B91C1C" />
+    <SolidColorBrush x:Key="StatusAmberSoft" Color="#FEF3C7" />
+    <SolidColorBrush x:Key="StatusGreenSoft" Color="#DCFCE7" />
+    <SolidColorBrush x:Key="NeutralSoft" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="ShellDarkLine" Color="#2C3850" />
+    <SolidColorBrush x:Key="SelectedRowBorder" Color="#A8C0F4" />
+
+    <!-- Automated insights: amber, so suggestions read apart from status colours and the blue of commands -->
+    <SolidColorBrush x:Key="InsightText" Color="#B45309" />
+    <SolidColorBrush x:Key="InsightBar" Color="#D97706" />
+    <SolidColorBrush x:Key="InsightBarTrack" Color="#FBE7C0" />
+    <SolidColorBrush x:Key="InsightSoft" Color="#FEF3C7" />
+    <SolidColorBrush x:Key="InsightBorder" Color="#F6DFAE" />
+    <SolidColorBrush x:Key="InsightCardBackground" Color="#FFF9EC" />
+
+    <!-- Rounded card used across the Command Stream page -->
+    <Style x:Key="StreamCard" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CardBackground}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+    </Style>
+
+    <!-- Segmented single-choice toggle (time range, chart/log) -->
+    <Style x:Key="SegmentButton" TargetType="RadioButton">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"
+                            CornerRadius="6" Padding="13,6" SnapsToDevicePixels="True">
+                        <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="White" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource CardBorder}" />
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SegmentHost" TargetType="Border">
+        <Setter Property="Background" Value="#F1F3F6" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="3" />
+    </Style>
+
+    <!-- Compact buttons for card headers and rows -->
+    <Style x:Key="SmallButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Padding" Value="13,7" />
+    </Style>
+
+    <Style x:Key="SmallPrimaryButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Padding" Value="14,7" />
+    </Style>
+
+    <!-- Manual override buttons: larger, and a disabled one turns grey rather than just fading -->
+    <Style x:Key="CommandButton" TargetType="Button">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorder}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Padding" Value="17,9" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="7"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                            Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverGrey}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource NeutralSoft}" />
+                            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CommandPrimaryButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Padding" Value="18,10" />
+    </Style>
+
+    <!-- Alarm / destructive action -->
+    <Style x:Key="DangerButton" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource StatusRed}" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="17,9" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="7"
+                            Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#B91C1C" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Outlined button that sits on the dark header -->
+    <Style x:Key="DarkButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource TextOnDark}" />
+        <Setter Property="Background" Value="#141B29" />
+        <Setter Property="BorderBrush" Value="#343F55" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="16,9" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                            Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#1E2738" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The header's alert-injection button: the dark outline, tinted red -->
+    <Style x:Key="DarkDangerButton" TargetType="Button" BasedOn="{StaticResource DarkButton}">
+        <Setter Property="Background" Value="#2A1A22" />
+        <Setter Property="BorderBrush" Value="#6E2B33" />
+        <Setter Property="Foreground" Value="#FECACA" />
+    </Style>
+
+    <!-- Dark drop-down menu for the header's buttons -->
+    <Style x:Key="DarkContextMenu" TargetType="ContextMenu">
+        <Setter Property="HasDropShadow" Value="False" />
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="#141B29" BorderBrush="#343F55" BorderThickness="1" CornerRadius="10"
+                            Padding="6" Margin="0,0,12,12" SnapsToDevicePixels="True">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.35" />
+                        </Border.Effect>
+                        <StackPanel>
+                            <TextBlock Text="{TemplateBinding Tag}" FontSize="10" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextOnDarkMuted}" Margin="10,6,10,6" />
+                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        </StackPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="DarkMenuItem" TargetType="MenuItem">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{StaticResource TextOnDark}" />
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="7" Padding="10,8" SnapsToDevicePixels="True">
+                        <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#222C3F" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Text-only link button -->
+    <Style x:Key="LinkButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource AccentBlue}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <ContentPresenter VerticalAlignment="Center" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Opacity" Value="0.75" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Header KPI tile text -->
+    <Style x:Key="KpiLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextOnDarkMuted}" />
+    </Style>
+
+    <Style x:Key="KpiValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        <Setter Property="Foreground" Value="{StaticResource TextOnDark}" />
+        <Setter Property="Margin" Value="0,3,0,0" />
+    </Style>
+
+    <Style x:Key="KpiCaption" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{StaticResource TextOnDarkMuted}" />
+        <Setter Property="Margin" Value="0,2,0,0" />
+    </Style>
+
+    <!-- Small uppercase tag text -->
+    <Style x:Key="TagText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="9.5" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+    </Style>
+
+    <!-- List item with no selection chrome: the item template draws its own states -->
+    <Style x:Key="PlainListItem" TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <ContentPresenter />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
 </ResourceDictionary>
