@@ -1,4 +1,5 @@
-﻿using SmartX.Api.Data;
+using SmartX.Api.Data;
+using SmartX.Api.Streaming;
 using SmartX.Shared.Contracts;
 using SmartX.Shared.Models;
 using SmartX.Shared.Telemetry;
@@ -9,62 +10,99 @@ namespace SmartX.Api.Endpoints
     /// <summary>
     /// Defines every HTTP route for telemetry.
     /// Covers ingesting a single reading, ingesting a jagged batch of sampling windows, and reading back a sensor's recent history.
+    ///
+    /// Part 2: both ingest routes now hand packets to the TelemetryIngestionPipeline instead of writing
+    /// to storage themselves. A single reading is classified, queued (FIFO routine queue, or the priority
+    /// alert lane if it breaks a threshold) and acknowledged with 202 Accepted straight away, the way a
+    /// real IoT gateway acknowledges a device before it has finished processing.
     /// </summary>
     public static class TelemetryEndpoints
     {
+        private static readonly TimeSpan MaxClockSkew = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan MaxBacklogAge = TimeSpan.FromHours(24);
+
+
         public static void MapTelemetryEndpoints(this IEndpointRouteBuilder app)
         {
             var group = app.MapGroup("/api/sensors/{id}/telemetry").WithTags("Telemetry");
 
-            group.MapPost("/", (string id, TelemetryIngestRequest request, SensorRepository sensors, TelemetryStore telemetry) =>
+            group.MapPost("/", (string id, TelemetryIngestRequest request, LiveDeviceRegistry registry, TelemetryIngestionPipeline pipeline) =>
             {
-                if (!sensors.TryGet(id, out _))
+                // O(1) dictionary lookup: which device is this, and what category decides its classification.
+                if (!registry.TryGetRouting(id, out var deviceId, out var category))
                     return Results.NotFound($"No sensor registered with id '{id}'.");
 
-                ITelemetryPacket packet = request.DataType switch
+                if (request.TimestampUtc is { } stamped)
                 {
-                    TelemetryDataType.Float when request.FloatValue is { } f => new TelemetryPacket<float>(id, f, request.Unit),
-                    TelemetryDataType.Int when request.IntValue is { } i => new TelemetryPacket<int>(id, i, request.Unit),
-                    TelemetryDataType.Bool when request.BoolValue is { } b => new TelemetryPacket<bool>(id, b, request.Unit),
-                    _ => throw new InvalidOperationException()
+                    var now = DateTimeOffset.UtcNow;
+
+                    if (stamped > now + MaxClockSkew)
+                        return Results.BadRequest("TimestampUtc is in the future - check the device's clock.");
+
+                    if (stamped < now - MaxBacklogAge)
+                        return Results.BadRequest("TimestampUtc is more than 24 hours old.");
+                }
+
+                ITelemetryPacket? packet = request.DataType switch
+                {
+                    TelemetryDataType.Float when request.FloatValue is { } f => new TelemetryPacket<float>(deviceId, f, request.Unit, request.TimestampUtc),
+                    TelemetryDataType.Int when request.IntValue is { } i => new TelemetryPacket<int>(deviceId, i, request.Unit, request.TimestampUtc),
+                    TelemetryDataType.Bool when request.BoolValue is { } b => new TelemetryPacket<bool>(deviceId, b, request.Unit, request.TimestampUtc),
+                    _ => null
                 };
 
-                telemetry.Add(id, packet);
-                return Results.Ok(ToDto(packet));
+                // Part 1 threw here, which surfaced as a 500. A mismatched payload is the caller's mistake: 400.
+                if (packet is null)
+                    return Results.BadRequest($"A {request.DataType} reading must populate its matching value field.");
+
+                var result = pipeline.Enqueue(deviceId, category, packet);
+
+                return Results.Accepted($"/api/sensors/{deviceId}/telemetry", new TelemetryReceiptDto(
+                    result.Sequence,
+                    deviceId,
+                    result.Lane,
+                    result.Assessment?.Severity,
+                    result.Assessment?.Description,
+                    result.RoutineDepth,
+                    result.AlertDepth));
             })
-            .Produces<TelemetryDto>()
+            .Produces<TelemetryReceiptDto>(StatusCodes.Status202Accepted)
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound);
 
-            group.MapPost("/batch", (string id, BatchTelemetryIngestRequest request, SensorRepository sensors, TelemetryStore telemetry) =>
+
+            group.MapPost("/batch", (string id, BatchTelemetryIngestRequest request, LiveDeviceRegistry registry, TelemetryIngestionPipeline pipeline) =>
             {
-                if (!sensors.TryGet(id, out _))
+                if (!registry.TryGetRouting(id, out var deviceId, out var category))
                     return Results.NotFound($"No sensor registered with id '{id}'.");
 
                 BatchResult? result = request.DataType switch
                 {
-                    TelemetryDataType.Float when request.FloatWindows is { } windows => Ingest(windows),
-                    TelemetryDataType.Int when request.IntWindows is { } windows => Ingest(windows),
-                    TelemetryDataType.Bool when request.BoolWindows is { } windows => Ingest(windows),
+                    TelemetryDataType.Float when request.FloatWindows is { } windows => Parse(windows),
+                    TelemetryDataType.Int when request.IntWindows is { } windows => Parse(windows),
+                    TelemetryDataType.Bool when request.BoolWindows is { } windows => Parse(windows),
                     _ => null
                 };
 
                 if (result is not { } batch)
                     return Results.BadRequest($"A {request.DataType} batch must populate its matching window array.");
 
-                return Results.Ok(new BatchTelemetryIngestResponse(
-                    batch.PacketsIngested,
-                    batch.WindowSampleCounts,
-                    batch.IngestedReadings));
+                // The whole batch joins the queue at once and the response goes straight back; the
+                // processor works through the packets in its own time, like a single reading.
+                pipeline.EnqueueBatch(deviceId, category, batch.Packets);
 
-                BatchResult Ingest<T>(T[][] windows) where T : struct
+                return Results.Ok(new BatchTelemetryIngestResponse(
+                    batch.Packets.Count,
+                    batch.WindowSampleCounts,
+                    batch.Packets.Select(ToDto).ToList()));
+
+                BatchResult Parse<T>(T[][] windows) where T : struct
                 {
-                    var packets = BatchTelemetryProcessor.ProcessRawBatches(id, windows, request.Unit);
-                    telemetry.AddRange(id, packets);
+                    var packets = BatchTelemetryProcessor.ProcessRawBatches(deviceId, windows, request.Unit);
 
                     return new BatchResult(
-                        packets.Count,
-                        windows.Select(window => window.Length).ToArray(),
-                        packets.Select(ToDto).ToList());
+                        packets.Cast<ITelemetryPacket>().ToList(),
+                        windows.Select(window => window.Length).ToArray());
                 }
             })
             .Produces<BatchTelemetryIngestResponse>()
@@ -73,22 +111,21 @@ namespace SmartX.Api.Endpoints
 
             group.MapGet("/", (string id, int? take, SensorRepository sensors, TelemetryStore telemetry) =>
             {
-                if (!sensors.TryGet(id, out _))
+                if (!sensors.TryGet(id, out var sensor))
                     return Results.NotFound($"No sensor registered with id '{id}'.");
 
-                var recent = telemetry.GetRecent(id, take ?? 50).Select(ToDto).ToList();
+                var recent = telemetry.GetRecent(sensor.Id, take ?? 50).Select(ToDto).ToList();
                 return Results.Ok(recent);
             });
         }
 
         /// <summary>
-        /// One closed generic's worth of batch work, so the three <c>Ingest&lt;T&gt;</c> branches can
+        /// One closed generic's worth of parsed batch, so the three <c>Parse&lt;T&gt;</c> branches can
         /// return the same shape without the value type leaking into the response.
         /// </summary>
         private readonly record struct BatchResult(
-            int PacketsIngested,
-            int[] WindowSampleCounts,
-            List<TelemetryDto> IngestedReadings);
+            List<ITelemetryPacket> Packets,
+            int[] WindowSampleCounts);
 
         private static TelemetryDto ToDto(ITelemetryPacket packet) =>
             new(packet.SensorId, packet.TimestampUtc, Round(packet.ValueAsString), packet.Unit);
