@@ -1,4 +1,5 @@
-﻿using SmartX.Api.Data;
+using SmartX.Api.Data;
+using SmartX.Api.Streaming;
 using SmartX.Shared.Contracts;
 using SmartX.Shared.Models;
 
@@ -38,22 +39,35 @@ namespace SmartX.Api.Endpoints
             });
 
 
-            // Register new sensor
-            group.MapPost("/", (SensorRegistrationRequest request, SensorRepository sensors, TelemetryStore telemetry) =>
+            // Register new sensor. Also files it in the live device dictionary so its packets can be
+            // matched in O(1) the moment they start arriving.
+            group.MapPost("/", (SensorRegistrationRequest request, SensorRepository sensors, LiveDeviceRegistry registry, TelemetryStore telemetry) =>
             {
                 if (string.IsNullOrWhiteSpace(request.id) || string.IsNullOrWhiteSpace(request.Location))
                     return Results.BadRequest("Id and Location are required");
 
-                if (sensors.Exists(request.id))
-                    return Results.Conflict($"Sensor '{request.id}' is already registered");
+                // The client validates this too, but the API cannot trust that every caller is the client.
+                if (!DeviceIdentifier.IsValid(request.id))
+                    return Results.BadRequest("Id must be a MAC address (24:6F:28:AA:BB:CC) or a node identifier (ESP32-ENV-04).");
+
+                if (!Enum.IsDefined(request.Category))
+                    return Results.BadRequest($"Unknown sensor category '{request.Category}'.");
+
+                string id = DeviceIdentifier.Normalize(request.id);
+
+                if (sensors.Exists(id))
+                    return Results.Conflict($"Sensor '{id}' is already registered");
 
                 var sensor = sensors.Register(new SensorDevice
                 {
-                    Id = request.id,
-                    Location = request.Location,
+                    Id = id,
+                    DisplayName = request.DisplayName?.Trim() ?? string.Empty,
+                    Location = request.Location.Trim(),
                     Category = request.Category,
                     RegisteredAtUtc = DateTimeOffset.UtcNow
                 });
+
+                registry.Register(sensor);
 
                 return Results.Created($"/api/sensors/{sensor.Id}", ToDto(sensor, telemetry));
             });
@@ -71,7 +85,8 @@ namespace SmartX.Api.Endpoints
             sensor.Category,
             sensor.RegisteredAtUtc,
             sensor.Attachments.Count,
-            telemetry.CountFor(sensor.Id));
+            telemetry.CountFor(sensor.Id),
+            string.IsNullOrWhiteSpace(sensor.DisplayName) ? sensor.Id : sensor.DisplayName);
         //----------------------------------------------------------//
     }
 }
