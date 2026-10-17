@@ -19,7 +19,6 @@ namespace SmartX.Api.Streaming
         public FaultAssessment? Assessment { get; init; }
         public required DateTimeOffset ArrivedAtUtc { get; init; }
         public required long EnqueuedTimestamp { get; init; }
-        public BatchCompletion? Batch { get; init; }
 
         public double WaitedMilliseconds(long nowTimestamp) =>
             Stopwatch.GetElapsedTime(EnqueuedTimestamp, nowTimestamp).TotalMilliseconds;
@@ -45,48 +44,9 @@ namespace SmartX.Api.Streaming
 
 
     /// <summary>
-    /// Lets a batch request await the processing of its own packets without holding a thread.
-    /// Each packet signals when processed; the last one completes the task. Counting down, rather
-    /// than waiting for the final packet, matters because a batch's critical readings jump into the
-    /// alert lane and can finish before the routine ones queued ahead of them.
-    /// </summary>
-    public sealed class BatchCompletion(int packetCount)
-    {
-        private int _remaining = packetCount;
-        private readonly TaskCompletionSource _done = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public Task Completion => _done.Task;
-
-        public void Signal()
-        {
-            if (Interlocked.Decrement(ref _remaining) == 0)
-                _done.TrySetResult();
-        }
-    }
-    //----------------------------------------------------------//
-
-
-    /// <summary>
-    /// Tunables for the pipeline, bound from the "Pipeline" section of appsettings.json.
-    /// The routine budget models a resource-constrained edge gateway (think Raspberry Pi class) that can
-    /// only process so many packets per second; it is what lets a burst build a visible backlog.
-    /// </summary>
-    public sealed class PipelineOptions
-    {
-        public int RoutineBudgetPerCycle { get; set; } = 20;
-        public int CycleMilliseconds { get; set; } = 100;
-        public int RoutineCapacity { get; set; } = 5000;
-
-        public int RoutineBudgetPerSecond => RoutineBudgetPerCycle * 1000 / Math.Max(1, CycleMilliseconds);
-    }
-    //----------------------------------------------------------//
-
-
-    /// <summary>
-    /// What happened to a packet offered to the pipeline.
+    /// Where a packet offered to the pipeline was queued.
     /// </summary>
     public readonly record struct EnqueueResult(
-        bool Accepted,
         long Sequence,
         IngestLane Lane,
         FaultAssessment? Assessment,
