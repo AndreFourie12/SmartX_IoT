@@ -1,13 +1,4 @@
 ﻿using SmartX.Shared.Models;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.Design.Serialization;
-using System.Text;
-using System.Text.RegularExpressions;
-
-/* Sources Used
- * MAC Address Generation - https://stackoverflow.com/questions/16448519/c-sharp-regex-validating-mac-address
-*/
 
 
 namespace SmartX.Shared.Validation
@@ -17,24 +8,13 @@ namespace SmartX.Shared.Validation
     /// Goes throught the tree of a DeploymentNode to confirm if a device is safely configured
     /// within its facilit/zone/subzone hieracrhy 
     /// </summary>
-    public static partial class DeploymentValidator
+    public static class DeploymentValidator
     {
         private const int RequiredDeviceDepth = 3;
 
         // Guards against cyclic input trees turning recursion into a stack overflow
         private const int MaxDepth = 16;
 
-
-        /// <summary>
-        /// Checks if a piece of text is written in the correct format for a MAC address
-        /// or a node identifier
-        /// </summary>
-        [GeneratedRegex("^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")]
-        private static partial Regex MacAddressPattern();
-
-        [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$")]
-        private static partial Regex NodeIdentifierPattern();
-        //----------------------------------------------------------//
 
 
         /// <summary>
@@ -77,7 +57,7 @@ namespace SmartX.Shared.Validation
                 if (depth != RequiredDeviceDepth)
                     errors.Add($"{path}: device nodes must be at exactly 3 levels deep (Facility → Zone → SubZone → Device). {DescribeDepth(depth)}.");
 
-                if (string.IsNullOrWhiteSpace(node.DeviceMacAddress) || !(MacAddressPattern().IsMatch(node.DeviceMacAddress) || NodeIdentifierPattern().IsMatch(node.DeviceMacAddress)))
+                if (!DeviceIdentifier.IsValid(node.DeviceMacAddress))
                     errors.Add($"{path}: device node requires a valid MAC address or node identifier (e.g. 24:6F:28:AA:BB:CC or ESP32-ENV-04).");
 
                 if (node.Children.Count > 0)

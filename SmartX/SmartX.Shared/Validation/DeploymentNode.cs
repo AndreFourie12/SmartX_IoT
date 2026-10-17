@@ -20,7 +20,7 @@ namespace SmartX.Shared.Validation
 
 
     /// <summary>
-    /// One node in a multi-tier deployment tree, e.g Facility A -> Zone 1 -> Sub-Zone B 
+    /// One node in a multi-tier deployment tree, e.g Facility A -> Grow Room -> NFT Channel 2 
     /// Done for organisational grouping, makes things easier to find
     /// </summary>
   
