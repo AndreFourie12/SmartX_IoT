@@ -1,5 +1,3 @@
-using SmartX.Api.Insights;
-using SmartX.Shared.Collections;
 using SmartX.Shared.Models;
 using SmartX.Shared.Streaming;
 
@@ -13,8 +11,6 @@ namespace SmartX.Api.Streaming
     /// </summary>
     public sealed class LiveDeviceState
     {
-        public const int SparklineCapacity = 30;
-
         public required string Id { get; init; }
         public required string DisplayName { get; set; }
         public required SensorCategory Category { get; set; }
@@ -36,12 +32,6 @@ namespace SmartX.Api.Streaming
         public bool? ReportedOn { get; set; }
         public bool? DesiredOn { get; set; }
         public DateTimeOffset? DesiredSetAtUtc { get; set; }
-
-        // Last 30 values for the dashboard sparkline - Part 1's ring buffer reused, O(1) per append.
-        public TelemetryRingBuffer<double> Sparkline { get; } = new(SparklineCapacity);
-
-        // A field rather than a property so Baseline.Add mutates the struct in place.
-        public RollingBaseline Baseline;
 
         // Which alert-state index set this device currently sits in.
         public DeviceAlertState IndexedState { get; set; } = DeviceAlertState.AwaitingData;
@@ -68,8 +58,7 @@ namespace SmartX.Api.Streaming
         double? LastNumeric,
         bool? ReportedOn,
         bool? DesiredOn,
-        DateTimeOffset? DesiredSetAtUtc,
-        RollingBaseline Baseline)
+        DateTimeOffset? DesiredSetAtUtc)
     {
         public bool EffectiveOn => DesiredOn ?? ReportedOn ?? false;
         public bool CommandPending => DesiredOn is { } desired && ReportedOn != desired;
@@ -86,9 +75,7 @@ namespace SmartX.Api.Streaming
         bool IsNewest,
         string DisplayName,
         bool CommandAcknowledged,
-        bool? ReportedOn,
-        double? ZScore,
-        double BaselineMean);
+        bool? ReportedOn);
     //----------------------------------------------------------//
 
 

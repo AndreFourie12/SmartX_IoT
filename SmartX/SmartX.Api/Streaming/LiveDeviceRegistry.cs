@@ -16,9 +16,9 @@ namespace SmartX.Api.Streaming
     /// DeviceIdentifier.Normalize, so "24-6f-28-aa-bb-cc" and "24:6F:28:AA:BB:CC" hash to the same entry.
     ///
     /// Two secondary indexes sit beside it: category -> set of ids, and alert state -> set of ids.
-    /// They are kept in step as devices change state, so the dashboard's filters are set unions and
-    /// intersections over a handful of small sets instead of a scan, and each filter-chip count is
-    /// just the size of a set.
+    /// They are kept in step as devices change state, so the dashboard's filters are set lookups and
+    /// intersections over a handful of small sets instead of a scan, and a group command ("Stop all
+    /// pumps") reads its targets straight out of the category index.
     ///
     /// Dictionary and HashSet are not thread-safe, and this is written to by the packet processor,
     /// the health monitor and HTTP requests at once, so every member takes the same lock. Nothing
@@ -114,7 +114,7 @@ namespace SmartX.Api.Streaming
         /// <summary>
         /// Folds one processed packet into the device's cached state.
         /// Arrival time always counts as "heard from", but only the newest reading by device timestamp
-        /// moves the latest value, sparkline and fault - a buffered packet flushed late after a
+        /// moves the latest value and fault - a buffered packet flushed late after a
         /// reconnect must not make an old value look current.
         /// </summary>
         public ReadingOutcome ApplyReading(string id, ITelemetryPacket packet, FaultAssessment? assessment, DateTimeOffset arrivedAtUtc)
@@ -129,7 +129,6 @@ namespace SmartX.Api.Streaming
 
                 bool isNewest = state.LastReadingUtc is null || packet.TimestampUtc >= state.LastReadingUtc;
                 bool acknowledged = false;
-                double? zScore = null;
 
                 if (isNewest)
                 {
@@ -138,20 +137,6 @@ namespace SmartX.Api.Streaming
                     state.LastReadingUtc = packet.TimestampUtc;
                     state.LastNumeric = double.IsNaN(numeric) ? null : numeric;
                     state.CurrentFault = assessment;
-
-                    if (!double.IsNaN(numeric))
-                    {
-                        state.Sparkline.Add(numeric);
-
-                        // Score the reading against the baseline before it joins it. Soil moisture is skipped: it is
-                        // driven by the pumps, so a "normal" level for it doesn't exist the way it does for a meter.
-                        if (!state.Category.IsActuator() && state.Category != SensorCategory.SoilMoisture)
-                            zScore = state.Baseline.ZScore(numeric);
-
-                        // Only healthy readings teach the baseline, so a spike can't drag "normal" towards itself.
-                        if (assessment is null && !state.Category.IsActuator())
-                            state.Baseline.Add(numeric);
-                    }
 
                     if (state.Category.IsActuator() && !double.IsNaN(numeric))
                     {
@@ -162,7 +147,7 @@ namespace SmartX.Api.Streaming
                 }
 
                 Reindex(state);
-                return new ReadingOutcome(true, isNewest, state.DisplayName, acknowledged, state.ReportedOn, zScore, state.Baseline.Mean);
+                return new ReadingOutcome(true, isNewest, state.DisplayName, acknowledged, state.ReportedOn);
             }
         }
         //----------------------------------------------------------//
@@ -285,7 +270,7 @@ namespace SmartX.Api.Streaming
 
         /// <summary>
         /// Runs the dashboard's search and filters.
-        /// Category chips are unioned, alert-state chips are unioned, then the two are intersected -
+        /// Chosen categories are unioned, chosen alert states are unioned, then the two are intersected -
         /// all on the index sets, so a filter that matches 3 devices out of 10,000 only touches those 3
         /// before the free-text match runs.
         /// </summary>
@@ -318,9 +303,9 @@ namespace SmartX.Api.Streaming
                     ? _devices.Values
                     : candidates.Select(id => _devices[id]);
 
-                string[] tokens = Tokenize(query.Text);
-                if (tokens.Length > 0)
-                    matches = matches.Where(state => MatchesAll(state, tokens));
+                string text = query.Text?.Trim() ?? string.Empty;
+                if (text.Length > 0)
+                    matches = matches.Where(state => Matches(state, text));
 
                 return matches
                     .OrderBy(state => DisplayRank(state, highlights))
@@ -333,23 +318,8 @@ namespace SmartX.Api.Streaming
 
 
         /// <summary>
-        /// Device counts per category and per alert state, each read off the size of its index set.
-        /// </summary>
-        public FilterFacetsDto Facets()
-        {
-            lock (_gate)
-            {
-                return new FilterFacetsDto(
-                    _byCategory.Where(pair => pair.Value.Count > 0).ToDictionary(pair => pair.Key, pair => pair.Value.Count),
-                    _byAlertState.ToDictionary(pair => pair.Key, pair => pair.Value.Count));
-            }
-        }
-        //----------------------------------------------------------//
-
-
-        /// <summary>
         /// Turns an operator's search text into the devices it refers to.
-        /// An exact name or id wins outright; otherwise every token has to appear in the device's
+        /// An exact name or id wins outright; otherwise the text has to appear in the device's
         /// name, id, location or category.
         /// </summary>
         public List<DeviceSnapshot> Resolve(string text)
@@ -365,10 +335,9 @@ namespace SmartX.Api.Streaming
                 if (byName is not null)
                     return [ToSnapshot(byName)];
 
-                string[] tokens = Tokenize(trimmed);
-                return tokens.Length == 0
+                return trimmed.Length == 0
                     ? []
-                    : _devices.Values.Where(state => MatchesAll(state, tokens)).Select(ToSnapshot).ToList();
+                    : _devices.Values.Where(state => Matches(state, trimmed)).Select(ToSnapshot).ToList();
             }
         }
         //----------------------------------------------------------//
@@ -444,52 +413,14 @@ namespace SmartX.Api.Streaming
         //----------------------------------------------------------//
 
 
-        private static string[] Tokenize(string? text) =>
-            string.IsNullOrWhiteSpace(text)
-                ? []
-                : text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-
-        private static readonly char[] WordSeparators = [' ', '/', '-', ':', '_'];
-
-
         /// <summary>
-        /// Every search word has to match the start of a word in the device's name, id, location or
-        /// category. Matching word starts rather than any substring is what stops "bay 2" from also
-        /// finding ESP32-VLV-01 (the "2" in "ESP32").
+        /// The search text, case-insensitively, anywhere in the device's name, id, location or category.
         /// </summary>
-        private static bool MatchesAll(LiveDeviceState state, string[] tokens)
-        {
-            foreach (var token in tokens)
-            {
-                bool hit = WordStartsWith(state.DisplayName, token)
-                    || WordStartsWith(state.Id, token)
-                    || WordStartsWith(state.Location, token)
-                    || WordStartsWith(state.Category.DisplayName(), token);
-
-                if (!hit)
-                    return false;
-            }
-
-            return true;
-        }
-        //----------------------------------------------------------//
-
-
-        private static bool WordStartsWith(string field, string token)
-        {
-            // A token that itself spans words ("VLV-02", "24:6F") is matched as a phrase.
-            if (token.IndexOfAny(WordSeparators) >= 0)
-                return field.Contains(token, StringComparison.OrdinalIgnoreCase);
-
-            foreach (var word in field.Split(WordSeparators, StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (word.StartsWith(token, StringComparison.OrdinalIgnoreCase))
-                    return true;
-            }
-
-            return false;
-        }
+        private static bool Matches(LiveDeviceState state, string text) =>
+            state.DisplayName.Contains(text, StringComparison.OrdinalIgnoreCase)
+            || state.Id.Contains(text, StringComparison.OrdinalIgnoreCase)
+            || state.Location.Contains(text, StringComparison.OrdinalIgnoreCase)
+            || state.Category.DisplayName().Contains(text, StringComparison.OrdinalIgnoreCase);
         //----------------------------------------------------------//
 
 
@@ -509,8 +440,7 @@ namespace SmartX.Api.Streaming
             state.LastNumeric,
             state.ReportedOn,
             state.DesiredOn,
-            state.DesiredSetAtUtc,
-            state.Baseline);
+            state.DesiredSetAtUtc);
 
 
         private static DeviceStateDto ToDto(LiveDeviceState state, IReadOnlyDictionary<string, string> highlights)
@@ -533,7 +463,6 @@ namespace SmartX.Api.Streaming
                 state.ReportedOn,
                 state.DesiredOn,
                 state.CommandPending,
-                state.Sparkline.ToList(),
                 state.PacketsProcessed,
                 reason is not null,
                 reason);
