@@ -11,7 +11,8 @@ namespace SmartX.Api.Data
     public sealed class SensorRepository
     {
 
-        private readonly ConcurrentDictionary<string, SensorDevice> _sensors = new();
+        // Keyed through DeviceIdentifier so MAC spelling and case can't split one device into two entries.
+        private readonly ConcurrentDictionary<string, SensorDevice> _sensors = new(DeviceIdentifier.Comparer);
 
         /// <summary>
         /// Adds new sensor OR overwrites an existing one with the same ID
@@ -25,7 +26,7 @@ namespace SmartX.Api.Data
 
 
         // Returns true/false depending if sensor exists, and ouputs the matching sensor
-        public bool TryGet(string id, out SensorDevice sensor) => _sensors.TryGetValue(id, out sensor!);
+        public bool TryGet(string id, out SensorDevice sensor) => _sensors.TryGetValue(DeviceIdentifier.Normalize(id), out sensor!);
 
 
         // Returns snapshot copy of all stored sensors as a readonly list
@@ -33,7 +34,7 @@ namespace SmartX.Api.Data
 
 
         // Simple existence check by ID
-        public bool Exists(string id) => _sensors.ContainsKey(id);
+        public bool Exists(string id) => _sensors.ContainsKey(DeviceIdentifier.Normalize(id));
     }
 }
 

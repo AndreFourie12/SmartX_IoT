@@ -1,4 +1,5 @@
 ﻿using SmartX.Shared.Collections;
+using SmartX.Shared.Models;
 using SmartX.Shared.Telemetry;
 using System.Collections.Concurrent;
 
@@ -12,8 +13,8 @@ namespace SmartX.Api.Data
     {
         private const int HistoryCapacity = 500;
 
-        private readonly ConcurrentDictionary<string, TelemetryRingBuffer<ITelemetryPacket>> _buffers = new();
-        private readonly ConcurrentDictionary<string, object> _locks = new();
+        private readonly ConcurrentDictionary<string, TelemetryRingBuffer<ITelemetryPacket>> _buffers = new(DeviceIdentifier.Comparer);
+        private readonly ConcurrentDictionary<string, object> _locks = new(DeviceIdentifier.Comparer);
 
         private object LockFor(string sensorId) => _locks.GetOrAdd(sensorId, _ => new object());
 
