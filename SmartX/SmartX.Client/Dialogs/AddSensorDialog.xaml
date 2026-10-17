@@ -1,7 +1,7 @@
 ﻿<Window x:Class="SmartX.Client.Dialogs.AddSensorDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Register Sensor" Height="560" Width="470"
+        Title="Register Sensor" Height="630" Width="470"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{StaticResource PageBackground}" FontFamily="Segoe UI">
     <Window.Resources>
@@ -34,21 +34,20 @@
                 <TextBox x:Name="IdentifierBox" Text="24:6F:28:AA:BB:CC"
                          FontFamily="{StaticResource MonoFont}" />
 
+                <TextBlock Text="Display Name (optional, e.g. Pump C)" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="DisplayNameBox" />
+
                 <TextBlock Text="Facility" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="FacilityBox" Text="Facility A" />
 
                 <TextBlock Text="Zone" Style="{StaticResource FieldLabel}" />
-                <TextBox x:Name="ZoneBox" Text="Zone 1" />
+                <TextBox x:Name="ZoneBox" Text="Grow Room" />
 
                 <TextBlock Text="Sub-Zone / Node" Style="{StaticResource FieldLabel}" />
-                <TextBox x:Name="SubZoneBox" Text="Sub-Zone A" />
+                <TextBox x:Name="SubZoneBox" Text="NFT Channel 1" />
 
                 <TextBlock Text="Sensor Category" Style="{StaticResource FieldLabel}" />
-                <ComboBox x:Name="CategoryCombo" SelectedIndex="0">
-                    <ComboBoxItem Content="Environmental" />
-                    <ComboBoxItem Content="PowerConsumption" />
-                    <ComboBoxItem Content="Actuator" />
-                </ComboBox>
+                <ComboBox x:Name="CategoryCombo" DisplayMemberPath="Label" SelectedValuePath="Value" />
 
                 <TextBlock x:Name="ErrorText" Foreground="{StaticResource StatusRed}" FontSize="12"
                            TextWrapping="Wrap" Margin="0,14,0,0" Visibility="Collapsed" />

@@ -1,6 +1,4 @@
-﻿using System.Text.RegularExpressions;
 using System.Windows;
-using System.Windows.Controls;
 using SmartX.Shared.Contracts;
 using SmartX.Shared.Models;
 
@@ -11,22 +9,24 @@ namespace SmartX.Client.Dialogs
     /// </summary>
     public partial class AddSensorDialog : Window
     {
-        private static readonly Regex MacAddressPattern =
-            new("^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$", RegexOptions.Compiled);
-
-        private static readonly Regex NodeIdentifierPattern =
-            new("^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$", RegexOptions.Compiled);
-
         public SensorDto? RegisteredSensor { get; private set; }
 
 
 
         /// <summary>
         /// Builds the dialog and pre-selects the identifier text so the user can type straight over it.
+        /// The category list comes straight from the SensorCategory enum, so a category added to the
+        /// shared model can never be missing here.
         /// </summary>
         public AddSensorDialog()
         {
             InitializeComponent();
+
+            CategoryCombo.ItemsSource = Enum.GetValues<SensorCategory>()
+                .Select(category => new { Value = category, Label = category.DisplayName() })
+                .ToList();
+            CategoryCombo.SelectedIndex = 0;
+
             Loaded += (_, _) => IdentifierBox.SelectAll();
         }
         //----------------------------------------------------------//
@@ -41,7 +41,9 @@ namespace SmartX.Client.Dialogs
         {
             string identifier = IdentifierBox.Text.Trim();
 
-            if(!MacAddressPattern.IsMatch(identifier) && !NodeIdentifierPattern.IsMatch(identifier))
+            // Same rule the API applies (SmartX.Shared.Models.DeviceIdentifier), checked here first so a
+            // typo is caught before any network call.
+            if (!DeviceIdentifier.IsValid(identifier))
             {
                 ShowError("Enter a MAC address (24:6F:28:AA:BB:CC) or a node identifier (ESP32-ENV-04).");
                 return;
@@ -56,16 +58,17 @@ namespace SmartX.Client.Dialogs
             var segments = new[] { FacilityBox.Text.Trim(), ZoneBox.Text.Trim(), SubZoneBox.Text.Trim() }
                 .Where(segment => !string.IsNullOrWhiteSpace(segment));
 
-            string location = string.Join("/", segments);
+            string location = string.Join(" / ", segments);
 
-            var category = Enum.Parse<SensorCategory>(((ComboBoxItem)CategoryCombo.SelectedItem).Content.ToString()!);
+            var category = (SensorCategory)CategoryCombo.SelectedValue;
+            string? displayName = string.IsNullOrWhiteSpace(DisplayNameBox.Text) ? null : DisplayNameBox.Text.Trim();
 
             try
             {
                 RegisterButton.IsEnabled = false;
 
                 RegisteredSensor = await App.ApiClient.RegisterSensorAsync(
-                    new SensorRegistrationRequest(identifier, location, category));
+                    new SensorRegistrationRequest(identifier, location, category, displayName));
 
                 DialogResult = true;
             }
