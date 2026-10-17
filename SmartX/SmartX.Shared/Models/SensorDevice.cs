@@ -15,7 +15,10 @@ namespace SmartX.Shared.Models
         // MAC address / unique node identifier
         public required string Id { get; init; }
 
-        // e.g. "Facility A / Zone 1 / Sub-Zone B"
+        // Friendly name operators search by, e.g. "Pump A" or "Moisture Sensor B". Falls back to the Id.
+        public string DisplayName { get; set; } = string.Empty;
+
+        // e.g. "Facility A / Grow Room / NFT Channel 2"
         public required string Location { get; set; } 
 
         // Category of device, in SensorCategory

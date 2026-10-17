@@ -1,19 +1,18 @@
-﻿using SmartX.Shared.Models;
-using System;
-using System.Collections.Generic;
-using System.Text;
+using SmartX.Shared.Models;
 
 namespace SmartX.Shared.Contracts
 {
     /// <summary>
     /// What the client submits when creating a sensor
     /// Contains what the clients know/controls about the sensor
+    /// DisplayName is optional so Part 1 callers that only send id/location/category keep working.
     /// Client -> API
     /// </summary>
     public sealed record SensorRegistrationRequest(
         string id,
         string Location,
-        SensorCategory Category);
+        SensorCategory Category,
+        string? DisplayName = null);
     //----------------------------------------------------------//
 
 
@@ -27,7 +26,8 @@ namespace SmartX.Shared.Contracts
         SensorCategory Category,
         DateTimeOffset RegisteredAtUtc,
         int AttachmentCount,
-        int TelemetryReadingCount);
+        int TelemetryReadingCount,
+        string DisplayName = "");
     //----------------------------------------------------------//
 
 
