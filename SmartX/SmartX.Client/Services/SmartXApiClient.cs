@@ -1,9 +1,12 @@
-﻿using System.IO;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using SmartX.Shared.Contracts;
+using SmartX.Shared.Models;
+using SmartX.Shared.Streaming;
 using SmartX.Shared.Validation;
 
 namespace SmartX.Client.Services
@@ -20,7 +23,7 @@ namespace SmartX.Client.Services
         /// Serializer settings shared by every call on this client.
         /// Web defaults plus a converter so enums travel as strings rather than numbers.
         /// </summary>
-        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+        public static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
         {
             Converters = { new JsonStringEnumConverter() }
         };
@@ -30,12 +33,22 @@ namespace SmartX.Client.Services
 
         /// <summary>
         /// Creates the underlying HttpClient and points it at the gateway's base address.
+        /// A short timeout, so a gateway that has gone away fails a poll quickly instead of stalling it.
         /// </summary>
         public SmartXApiClient(string baseAddress)
         {
-            _http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+            _http = new HttpClient { BaseAddress = new Uri(baseAddress), Timeout = TimeSpan.FromSeconds(20) };
         }
         //----------------------------------------------------------//
+
+
+        public Uri BaseAddress => _http.BaseAddress!;
+
+
+        /// <summary>
+        /// Device ids can be MAC addresses, so they are escaped before going into a URL path.
+        /// </summary>
+        private static string Id(string sensorId) => Uri.EscapeDataString(sensorId);
 
 
 
@@ -74,7 +87,7 @@ namespace SmartX.Client.Services
         /// Returns an empty list if nothing comes back.
         /// </summary>
         public async Task<List<TelemetryDto>> GetTelemetryAsync(string sensorId, int take = 20, CancellationToken ct = default) =>
-            await _http.GetFromJsonAsync<List<TelemetryDto>>($"/api/sensors/{sensorId}/telemetry?take={take}", JsonOptions, ct) ?? [];
+            await _http.GetFromJsonAsync<List<TelemetryDto>>($"/api/sensors/{Id(sensorId)}/telemetry?take={take}", JsonOptions, ct) ?? [];
         //----------------------------------------------------------//
 
 
@@ -85,9 +98,28 @@ namespace SmartX.Client.Services
         /// </summary>
         public async Task<BatchTelemetryIngestResponse?> IngestBatchAsync(string sensorId, BatchTelemetryIngestRequest request, CancellationToken ct = default)
         {
-            var response = await _http.PostAsJsonAsync($"/api/sensors/{sensorId}/telemetry/batch", request, JsonOptions, ct);
+            var response = await _http.PostAsJsonAsync($"/api/sensors/{Id(sensorId)}/telemetry/batch", request, JsonOptions, ct);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<BatchTelemetryIngestResponse>(JsonOptions, ct);
+        }
+        //----------------------------------------------------------//
+
+
+
+        /// <summary>
+        /// Posts one reading exactly as a device would. The receipt says which queue it was routed into.
+        /// </summary>
+        public async Task<TelemetryReceiptDto?> IngestTelemetryAsync(string sensorId, TelemetryIngestRequest request, CancellationToken ct = default)
+        {
+            var response = await _http.PostAsJsonAsync($"/api/sensors/{Id(sensorId)}/telemetry", request, JsonOptions, ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                throw new InvalidOperationException($"Ingest failed ({(int)response.StatusCode}): {body}");
+            }
+
+            return await response.Content.ReadFromJsonAsync<TelemetryReceiptDto>(JsonOptions, ct);
         }
         //----------------------------------------------------------//
 
@@ -98,7 +130,7 @@ namespace SmartX.Client.Services
         /// Returns an empty list if that sensor has none.
         /// </summary>
         public async Task<List<AttachmentDto>> GetAttachmentsAsync(string sensorId, CancellationToken ct = default) =>
-            await _http.GetFromJsonAsync<List<AttachmentDto>>($"/api/sensors/{sensorId}/attachments", JsonOptions, ct) ?? [];
+            await _http.GetFromJsonAsync<List<AttachmentDto>>($"/api/sensors/{Id(sensorId)}/attachments", JsonOptions, ct) ?? [];
         //----------------------------------------------------------//
 
 
@@ -116,7 +148,7 @@ namespace SmartX.Client.Services
 
             content.Add(streamContent, "file", Path.GetFileName(filePath));
 
-            var response = await _http.PostAsync($"/api/sensors/{sensorId}/attachments", content, ct);
+            var response = await _http.PostAsync($"/api/sensors/{Id(sensorId)}/attachments", content, ct);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -158,6 +190,79 @@ namespace SmartX.Client.Services
         /// </summary>
         public async Task<EngagementSummaryDto?> GetEngagementSummaryAsync(CancellationToken ct = default) =>
             await _http.GetFromJsonAsync<EngagementSummaryDto>("/api/engagement/summary", JsonOptions, ct);
+        //----------------------------------------------------------//
+
+
+
+        // ============================ Part 2: Real-Time Command Stream ============================ //
+
+        /// <summary>
+        /// Everything the Command Stream page draws, in one round trip. The search text and filters
+        /// travel as query parameters, so the gateway does the filtering against its index sets.
+        /// </summary>
+        public async Task<StreamSnapshotDto?> GetStreamSnapshotAsync(
+            string? search,
+            IEnumerable<SensorCategory> categories,
+            IEnumerable<DeviceAlertState> alertStates,
+            string? selectedId,
+            int minutes,
+            CancellationToken ct = default)
+        {
+            var query = new StringBuilder($"/api/stream/snapshot?minutes={minutes}");
+
+            if (!string.IsNullOrWhiteSpace(search))
+                query.Append("&q=").Append(Uri.EscapeDataString(search.Trim()));
+
+            foreach (var category in categories)
+                query.Append("&category=").Append(category);
+
+            foreach (var state in alertStates)
+                query.Append("&alert=").Append(state);
+
+            if (!string.IsNullOrWhiteSpace(selectedId))
+                query.Append("&selected=").Append(Uri.EscapeDataString(selectedId));
+
+            return await _http.GetFromJsonAsync<StreamSnapshotDto>(query.ToString(), JsonOptions, ct);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Issues a manual override. A refusal (nothing to change, unknown device) comes back as a result
+        /// with Applied = false rather than an exception, so the page can show the gateway's reason.
+        /// </summary>
+        public Task<CommandResultDto?> IssueCommandAsync(OverrideCommandRequest request, CancellationToken ct = default) =>
+            ReadCommandResultAsync(_http.PostAsJsonAsync("/api/stream/commands", request, JsonOptions, ct), ct);
+
+        public Task<CommandResultDto?> UndoAsync(CancellationToken ct = default) =>
+            ReadCommandResultAsync(_http.PostAsync("/api/stream/commands/undo", null, ct), ct);
+
+        private static async Task<CommandResultDto?> ReadCommandResultAsync(Task<HttpResponseMessage> send, CancellationToken ct)
+        {
+            using var response = await send;
+            return await response.Content.ReadFromJsonAsync<CommandResultDto>(JsonOptions, ct);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Logs an operator search so the suggestion engine can learn from it.
+        /// </summary>
+        public async Task LogSearchAsync(string query, CancellationToken ct = default)
+        {
+            using var response = await _http.PostAsJsonAsync("/api/stream/searches", new SearchLogRequest(query), JsonOptions, ct);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Asks the simulated fleet for a reconnect storm. False if one is already running.
+        /// </summary>
+        public async Task<bool> TriggerStormAsync(int packets = 1200, CancellationToken ct = default)
+        {
+            using var response = await _http.PostAsync($"/api/simulator/storm?packets={packets}", null, ct);
+            return response.IsSuccessStatusCode;
+        }
         //----------------------------------------------------------//
     }
 }
