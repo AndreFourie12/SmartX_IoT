@@ -25,20 +25,9 @@ namespace SmartX.Shared.Contracts
         bool? ReportedOn,
         bool? DesiredOn,
         bool CommandPending,
-        IReadOnlyList<double> Sparkline,
         long PacketsProcessed,
         bool Highlighted,
         string? HighlightReason);
-    //----------------------------------------------------------//
-
-
-    /// <summary>
-    /// How many devices sit in each category and alert state. Each figure is the size of an index
-    /// set on the API, so the whole facet bar costs O(categories + states) to produce.
-    /// </summary>
-    public sealed record FilterFacetsDto(
-        IReadOnlyDictionary<SensorCategory, int> Categories,
-        IReadOnlyDictionary<DeviceAlertState, int> AlertStates);
     //----------------------------------------------------------//
 
 
@@ -48,14 +37,12 @@ namespace SmartX.Shared.Contracts
     public sealed record PipelineStatsDto(
         int RoutineDepth,
         int AlertDepth,
-        int RoutineCapacity,
         long RoutineProcessed,
         long AlertProcessed,
         double RoutineAvgWaitMs,
         double AlertAvgWaitMs,
         double RoutineMaxWaitMs,
         double AlertMaxWaitMs,
-        long Shed,
         double ProcessedPerSecond,
         int RoutineBudgetPerSecond,
         int LastBypassCount);
@@ -134,15 +121,13 @@ namespace SmartX.Shared.Contracts
 
     /// <summary>
     /// A manual override command. DeviceId is only used when Scope is Device.
-    /// InsightId is set when the operator accepted a suggestion, so the engine can reinforce it.
     /// Client -> API
     /// </summary>
     public sealed record OverrideCommandRequest(
         OverrideAction Action,
         CommandScope Scope,
         string? DeviceId = null,
-        CommandOrigin Origin = CommandOrigin.Manual,
-        string? InsightId = null);
+        CommandOrigin Origin = CommandOrigin.Manual);
     //----------------------------------------------------------//
 
 
@@ -154,7 +139,7 @@ namespace SmartX.Shared.Contracts
 
 
     /// <summary>
-    /// A command as it sits on the undo or redo stack.
+    /// A command as it sits on the undo stack.
     /// </summary>
     public sealed record CommandRecordDto(
         string Id,
@@ -168,18 +153,16 @@ namespace SmartX.Shared.Contracts
 
 
     /// <summary>
-    /// The top of both stacks, newest first.
+    /// The top of the undo stack, newest first.
     /// </summary>
     public sealed record CommandHistoryDto(
         IReadOnlyList<CommandRecordDto> UndoStack,
-        int UndoCount,
-        IReadOnlyList<CommandRecordDto> RedoStack,
-        int RedoCount);
+        int UndoCount);
     //----------------------------------------------------------//
 
 
     /// <summary>
-    /// Outcome of issuing, undoing or redoing a command.
+    /// Outcome of issuing or undoing a command.
     /// </summary>
     public sealed record CommandResultDto(
         bool Applied,
@@ -248,7 +231,6 @@ namespace SmartX.Shared.Contracts
         AlertSummaryDto Alerts,
         IReadOnlyList<DeviceStateDto> Devices,
         int TotalDevices,
-        FilterFacetsDto Facets,
         IReadOnlyList<InsightDto> Insights,
         IReadOnlyList<LearnedPatternDto> Patterns,
         IReadOnlyList<string> PredictedSearches,

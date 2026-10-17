@@ -37,8 +37,7 @@ namespace SmartX.Shared.Streaming
         Overwatering,
         HumidityOutOfRange,
         Overheating,
-        Offline,
-        CommandNotAcknowledged
+        Offline
     }
     //----------------------------------------------------------//
 
@@ -70,7 +69,6 @@ namespace SmartX.Shared.Streaming
         DeviceReconnected,
         CommandIssued,
         CommandUndone,
-        CommandRedone,
         CommandAcknowledged,
         LoadTest,
         Info
@@ -124,10 +122,7 @@ namespace SmartX.Shared.Streaming
         LearnedResponse,
         NextActionPrediction,
         ZoneRule,
-        TrendForecast,
-        StatisticalAnomaly,
-        Connectivity,
-        CommandAcknowledgement
+        TrendForecast
     }
     //----------------------------------------------------------//
 }
