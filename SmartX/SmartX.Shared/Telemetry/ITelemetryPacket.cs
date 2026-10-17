@@ -1,7 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace SmartX.Shared.Telemetry
 {
     /// <summary>
@@ -9,7 +5,7 @@ namespace SmartX.Shared.Telemetry
     /// Allows the API and dashboard to acces differnt types (floats, ints, bools)
     /// through one uniform reference type.
     /// </summary>
-  
+
     public interface ITelemetryPacket
     {
         // ID of the sensor the reading came from
@@ -23,6 +19,10 @@ namespace SmartX.Shared.Telemetry
 
         // String projection of the strongly-typed value, formatted without boxing.
         string ValueAsString { get; }
+
+        // The value as a double for threshold checks, charts and statistics (bool reads as 1 or 0).
+        // NaN for a type with no numeric meaning.
+        double NumericValue { get; }
     }
 }
 
