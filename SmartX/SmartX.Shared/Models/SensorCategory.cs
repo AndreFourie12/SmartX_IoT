@@ -1,21 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace SmartX.Shared.Models
 {
     /// <summary>
-    /// Simple string that is attached to each sensor
-    /// Discribes what its used for.
+    /// Operational category attached to each sensor, describing what the device does.
+    /// Part 2 adds the hydroponics devices (soil moisture probes, water pumps, valves) and a
+    /// temperature probe so the command stream has real actuators to drive and real thresholds to watch.
+    /// SensorCategoryInfo holds the data type, unit and thresholds that go with each one.
     /// </summary>
-    
-    public enum SensorCategory // NB NB - Add more when app is done, 3 examples for now, add at least 2 more
+    public enum SensorCategory
     {
         Environmental,
         PowerConsumption,
-        Actuator
+        Actuator,
+        SoilMoisture,
+        Temperature,
+        WaterPump,
+        Valve
     }
 }
 
 //------------------------------------------- End Of File -------------------------------------------//
-
