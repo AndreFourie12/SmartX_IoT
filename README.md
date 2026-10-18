@@ -193,9 +193,9 @@ Each test below can be done from the UI, and most also from [`SmartX/SmartX.Api/
 
 **From the UI**
 1. Open **Real-Time Command Stream** (Ctrl+2).
-2. Click **Reconnect storm (load test)**. The simulated fleet flushes 1,200 buffered readings at once. Watch **ROUTINE QUEUE** jump into the hundreds and its average wait climb to seconds - the gateway only processes 200/s.
-3. Halfway through, the storm includes one severe power spike. Within a moment a red **CRITICAL** banner appears: *"processed 0.1 ms after arrival, ahead of 600+ waiting packets"*. The same appears in the live stream with a **PRIORITY LANE** tag, and **ALERT LANE** shows "last one jumped …".
-4. For a single alert on demand, click **⚡ Simulate critical alert ▾** and pick *Severe power spike*, *Critical moisture drop* or *Overheating*. The status line shows the receipt the API returned, including **ALERT lane**.
+2. Click **Reconnect storm (load test)**. The simulated fleet flushes 1,200 buffered readings at once. Watch ROUTINE QUEUE jump into the hundreds and its average wait climb to seconds - the gateway only processes 200/s.
+3. Halfway through, the storm includes one severe power spike. Within a moment a red CRITICAL banner appears: *"processed 0.1 ms after arrival, ahead of 600+ waiting packets"*. The same appears in the live stream with a PRIORITY LANE tag, and ALERT LANE shows "last one jumped …".
+4. For a single alert on demand, click Simulate critical alert and pick Severe power spike, Critical moisture drop or Overheating. The status line shows the receipt the API returned, including ALERT lane.
 
 **From the command line** - a normal reading, then a spike:
 
@@ -228,9 +228,9 @@ Inside the alert lane, Critical is served before Warning, and equal severities i
 
 ### 2. Stack&lt;T&gt; - manual override undo
 
-1. In the fleet, select **Pump A** and click **Turn ON**. The row shows *→ ON pending* until the simulated pump polls its shadow and reports back (about a second), then the stream shows *"Pump A confirmed ON"*.
+1. In the fleet, select **Pump A** and click **Turn ON**. The row shows *ON pending* until the simulated pump polls its shadow and reports back (about a second), then the stream shows *"Pump A confirmed ON"*.
 2. Click **Shut down all valves**. The **UNDO STACK** now holds both commands, newest on top marked **NEXT UNDO**.
-3. Click **Undo** - both valves reopen (each restored to its own previous state, including any that were already closed). Click **Undo** again - Pump A switches off. The stack pops last-in, first-out.
+3. Click **Undo** - both valves reopen (each restored to its own previous state, including any that were already closed). Click Undo again - Pump A switches off. The stack pops last-in, first-out.
 4. Click **Shut down all valves** twice: the second is refused (*"nothing to change"*) and is **not** pushed, so Undo never lands on an empty step.
 
 ### 3. Dictionary&lt;TKey, TValue&gt; - O(1) device lookup
@@ -279,7 +279,7 @@ Type in the search box: the text is matched, in any case, anywhere in a device's
 
 The engine starts with a few days of seeded operator history (as the brief encourages seeding), so it has patterns from the first second. The simulated **Moisture Sensor B** starts at 31 % and is drying out:
 
-1. Within seconds B crosses 30 % → a **Moisture low** warning. Without anyone searching, **Pump A** is highlighted in the fleet (✦ INSIGHT) and **Suggested Actions** shows **Turn ON Pump A** - *"Operators responded with this in 5 of 6 similar episodes"*. A **FORECAST** card predicts when B will cross 20 %, and *Anticipated* shows **Pump A** under the search box.
+1. Within seconds B crosses 30 %  a **Moisture low** warning. Without anyone searching, **Pump A** is highlighted in the fleet (INSIGHT) and **Suggested Actions** shows **Turn ON Pump A** - *"Operators responded with this in 5 of 6 similar episodes"*. A **FORECAST** card predicts when B will cross 20 %, and *Anticipated* shows **Pump A** under the search box.
 2. Type `Moisture Sensor B` in the search box and pause - the search is logged. The engine's Markov chain now predicts the next step from your last action.
 3. Click **▶ Run** on *Turn ON Pump A*. The command is tagged *from suggestion*, Pump A confirms ON, and B's moisture starts **rising** on the timeline. The card's evidence now reads *"(1 this session)"* - it learned from you.
 4. Leave Pump A running: Moisture Sensor A (also fed by Pump A) eventually overwaters, and the engine suggests **Turn OFF Pump A** (learned 3 of 3).
