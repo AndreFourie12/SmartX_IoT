@@ -345,7 +345,7 @@ The cards come from four analyses: **LEARNED** (what operators did after the sam
 ## Video Demonstration
 
 - Part 1: https://youtu.be/gwcMaRGh6Yg
-- Part 2: *add link here*
+- Part 2: https://youtu.be/4H8_9ItZpOU
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
