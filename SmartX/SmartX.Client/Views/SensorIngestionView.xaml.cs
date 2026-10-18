@@ -637,6 +637,8 @@ namespace SmartX.Client.Views
                     TelemetryDataType.Bool, null, null, JaggedWindows(windowCount, () => rng.NextDouble() < 0.5), unit)
             };
 
+            SimulateBatchButton.IsEnabled = false;
+
             try
             {
                 var response = await App.ApiClient.IngestBatchAsync(sensor.Id, request);
@@ -646,6 +648,10 @@ namespace SmartX.Client.Views
                     return;
                 }
 
+                // The gateway only queues the batch before replying, so give its processor a moment to store it
+                // before reading the count back - otherwise the readings still in the queue look like they were lost.
+                ActionStatusText.Text = $"{sensor.Id} · batch queued, waiting for the gateway to process it...";
+                await WaitForBatchToLandAsync(sensor.Id, readingsBefore, response.PacketsIngested);
                 await RefreshSensorsAsync();
 
                 _lastBatch = new LastBatch(
@@ -666,6 +672,33 @@ namespace SmartX.Client.Views
             catch (Exception ex)
             {
                 ActionStatusText.Text = $"Batch ingest failed: {ex.Message}";
+            }
+            finally
+            {
+                UpdateBatchButton();
+            }
+        }
+        //----------------------------------------------------------//
+
+
+
+        /// <summary>
+        /// Polls the sensor's reading count until the whole batch has been stored, or the ring buffer is at capacity
+        /// (where the count can no longer grow). Gives up after a few seconds if the gateway has a long backlog.
+        /// </summary>
+        private static async Task WaitForBatchToLandAsync(string sensorId, int readingsBefore, int packets)
+        {
+            int target = Math.Min(readingsBefore + packets, TelemetryLimits.SensorHistoryCapacity);
+
+            for (int attempt = 0; attempt < 15; attempt++)
+            {
+                await Task.Delay(200);
+
+                var latest = await App.ApiClient.GetSensorAsync();
+                int count = latest.FirstOrDefault(s => s.Id == sensorId)?.TelemetryReadingCount ?? 0;
+
+                if (count >= target)
+                    return;
             }
         }
         //----------------------------------------------------------//
@@ -721,17 +754,24 @@ namespace SmartX.Client.Views
             LastBatchSummary.Text = $"{batch.RanAtLocal:HH:mm:ss} · {batch.WindowSampleCounts.Length} windows";
 
             int added = batch.ReadingsAfter - batch.ReadingsBefore;
-            bool rolledOut = added < batch.PacketsIngested;
+
+            // Only a buffer at capacity can swallow readings; a shortfall below it means part of the batch is still queued.
+            bool rolledOut = added < batch.PacketsIngested && batch.ReadingsAfter >= TelemetryLimits.SensorHistoryCapacity;
+            bool stillQueued = added < batch.PacketsIngested && !rolledOut;
 
             LastBatchCountJump.Text = rolledOut
                 ? $"readings {batch.ReadingsBefore} → {batch.ReadingsAfter} (+{batch.PacketsIngested}, buffer full)"
-                : $"readings {batch.ReadingsBefore} → {batch.ReadingsAfter} (+{batch.PacketsIngested} from this batch)";
+                : stillQueued
+                    ? $"readings {batch.ReadingsBefore} → {batch.ReadingsAfter} (+{batch.PacketsIngested}, {batch.PacketsIngested - added} still queued)"
+                    : $"readings {batch.ReadingsBefore} → {batch.ReadingsAfter} (+{batch.PacketsIngested} from this batch)";
 
             LastBatchCountJump.ToolTip = rolledOut
-                ? $"{batch.PacketsIngested} readings were ingested, but this sensor's history is at capacity - the oldest rolled out of the ring buffer to make room."
-                : added > batch.PacketsIngested
-                    ? $"{batch.PacketsIngested} of the {added} readings added came from this batch; the rest is the background simulation."
-                    : $"All {added} readings added came from this batch.";
+                ? $"{batch.PacketsIngested} readings were ingested, but this sensor's history is at its {TelemetryLimits.SensorHistoryCapacity}-reading capacity - the oldest rolled out of the ring buffer to make room."
+                : stillQueued
+                    ? $"The gateway had stored {added} of the {batch.PacketsIngested} readings when this was taken; the rest were still waiting in its ingestion queue behind other traffic."
+                    : added > batch.PacketsIngested
+                        ? $"{batch.PacketsIngested} of the {added} readings added came from this batch; the rest is the background simulation."
+                        : $"All {added} readings added came from this batch.";
 
             LastBatchStrip.Visibility = Visibility.Visible;
         }

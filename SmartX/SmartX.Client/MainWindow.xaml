@@ -66,11 +66,9 @@
                         </StackPanel>
                     </RadioButton>
 
-                    <!-- Locked until the final PoE: disabled, so it can't be clicked or reached with Ctrl+3 -->
                     <RadioButton x:Name="TopologyTab" Style="{StaticResource NavTab}" GroupName="Pillars"
-                                 Checked="OnPillarChecked" Tag="Topology" IsEnabled="False"
-                                 ToolTipService.ShowOnDisabled="True"
-                                 ToolTip="Locked - network topology and mesh routing arrive in the final PoE">
+                                 Checked="OnPillarChecked" Tag="Topology"
+                                 ToolTip="Network topology and mesh routing (Ctrl+3)">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="M 7 2 L 2 8 M 7 2 L 12 8 M 7 2 L 7 14"
                                   Stroke="{StaticResource TextOnDarkDim}" StrokeThickness="1.5"
@@ -104,13 +102,96 @@
 
                     <Border Width="1" Height="34" Background="{StaticResource ShellDarkAlt}" Margin="0,0,18,0" />
 
-                    <TextBlock Text="J. Doe · Operator" FontSize="12.5" VerticalAlignment="Center"
-                               Foreground="{StaticResource TextOnDark}" Margin="0,0,12,0" />
-                    <Border Width="30" Height="30" CornerRadius="15" Background="{StaticResource ShellDarkAlt}">
-                        <TextBlock Text="JD" FontSize="11.5" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextOnDark}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
+                    <!-- Profile: click to open a small menu with Exit application -->
+                    <Button x:Name="ProfileButton" Click="OnProfileClicked" Cursor="Hand">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="10,5" SnapsToDevicePixels="True">
+                                                <ContentPresenter VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource ShellDarkAlt}" />
+                                                </Trigger>
+                                                <!-- Stay highlighted while the menu is open -->
+                                                <DataTrigger Binding="{Binding ContextMenu.IsOpen, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource ShellDarkAlt}" />
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+
+                        <Button.ContextMenu>
+                            <!-- Plain light menu that hangs straight off the profile button, exactly as wide as it -->
+                            <ContextMenu HasDropShadow="False" OverridesDefaultStyle="True" Placement="Bottom"
+                                         Width="{Binding PlacementTarget.ActualWidth, RelativeSource={RelativeSource Self}}">
+                                <ContextMenu.Template>
+                                    <ControlTemplate TargetType="ContextMenu">
+                                        <Border Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}"
+                                                BorderThickness="1" CornerRadius="6" Padding="4" SnapsToDevicePixels="True">
+                                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </ContextMenu.Template>
+
+                                <ContextMenu.Resources>
+                                    <Style TargetType="MenuItem">
+                                        <Setter Property="OverridesDefaultStyle" Value="True" />
+                                        <Setter Property="Cursor" Value="Hand" />
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                                        <Setter Property="FontSize" Value="12.5" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="MenuItem">
+                                                    <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Padding="10,7">
+                                                        <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsHighlighted" Value="True">
+                                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBlueSoft}" />
+                                                            <Setter Property="Foreground" Value="{StaticResource AccentBlue}" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ContextMenu.Resources>
+
+                                <MenuItem Click="OnExitMenuItemClick">
+                                    <MenuItem.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <!-- Door with an arrow leaving it; takes the item's text colour so it turns blue on hover -->
+                                            <Path Data="M 6 1.5 L 1.5 1.5 L 1.5 12.5 L 6 12.5 M 5 7 L 12.5 7 M 9.5 4 L 12.5 7 L 9.5 10"
+                                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=MenuItem}}"
+                                                  StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                                  Width="14" Height="14" Stretch="None" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                            <TextBlock Text="Exit application" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </MenuItem.Header>
+                                </MenuItem>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="J. Doe - Operator" FontSize="12.5" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextOnDark}" Margin="0,0,12,0" />
+                            <Border Width="30" Height="30" CornerRadius="15" Background="{StaticResource ShellDarkAlt}">
+                                <TextBlock Text="JD" FontSize="11.5" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextOnDark}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <Path Data="M 0 0 L 4 4 L 8 0" Stroke="{StaticResource TextOnDarkMuted}" StrokeThickness="1.5"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Width="8" Height="5" Stretch="None" VerticalAlignment="Center" Margin="10,1,0,0" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -57,6 +58,28 @@ namespace SmartX.Client
 
             await NavigateAsync(pillar);
         }
+        //----------------------------------------------------------//
+
+
+
+        /// <summary>
+        /// Opens the profile menu directly under the button. The menu is bound to the button's width, so it never
+        /// sticks out past the profile.
+        /// </summary>
+        private void OnProfileClicked(object sender, RoutedEventArgs e)
+        {
+            var menu = ProfileButton.ContextMenu;
+            menu.PlacementTarget = ProfileButton;
+            menu.Placement = PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Closes the client from the profile menu.
+        /// </summary>
+        private void OnExitMenuItemClick(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
         //----------------------------------------------------------//
 
 

@@ -11,7 +11,7 @@ namespace SmartX.Api.Data
     /// </summary>
     public sealed class TelemetryStore(IngestionRateTracker rateTracker)
     {
-        private const int HistoryCapacity = 500;
+        private const int HistoryCapacity = TelemetryLimits.SensorHistoryCapacity;
 
         private readonly ConcurrentDictionary<string, TelemetryRingBuffer<ITelemetryPacket>> _buffers = new(DeviceIdentifier.Comparer);
         private readonly ConcurrentDictionary<string, object> _locks = new(DeviceIdentifier.Comparer);
