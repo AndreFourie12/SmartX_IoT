@@ -106,7 +106,7 @@ dotnet restore SmartX.slnx
 dotnet build SmartX.slnx
 ```
 
-### 2. Start the API
+### 2.1 Start the API
 ```bash
 dotnet run --project SmartX.Api
 ```
@@ -115,6 +115,7 @@ This boots the gateway on **http://localhost:5224** and
 immediately seeds 8 mock sensors with historical telemetry, then keeps generating new
 live readings every 3 seconds. Leave this running in its own terminal.
 
+### 2.2 Docker
 For Docker -> From the `SmartX` folder, instead of the command above:
 
 ```bash
@@ -164,7 +165,7 @@ Part 2 and the final PoE.
 
 | Pillar | Shortcut | Notes |
 |---|---|---|
-| Sensor Data Ingestion & Telemetry | Ctrl+1 | Part 1. Select a sensor and use **Open in Command Stream ↗** to jump to its live view. |
+| Sensor Data Ingestion & Telemetry | Ctrl+1 | Part 1. Select a sensor and use **Open in Command Stream** to jump to its live view. |
 | Real-Time Command Stream & History | Ctrl+2 | Part 2. A red dot appears on this tab, from any pillar, while a critical alert is active. |
 | Network Topology & Mesh Routing | - | Locked until the final PoE: the tab is greyed out with a padlock, and Ctrl+3 does nothing. |
 
@@ -176,9 +177,9 @@ Switching pillars never reloads anything: each view is created once and cached. 
 |---|---|
 | **Header** | **LIVE** while the once-a-second refresh is reaching the gateway (red **GATEWAY UNREACHABLE** when it isn't). Routine queue depth (with a fill bar) and average wait; alert-lane depth, average wait and how many packets the last alert overtook; throughput against the 200/s budget; duplicates blocked by the HashSets. **Simulate critical alert ▾** and **Reconnect storm** buttons for testing. |
 | **Device fleet** (left) | Search box, *Anticipated* searches predicted by the engine, a **category** dropdown and an **alert-state** dropdown (each "All" or one value), and the fleet - most urgent first, with value and last-seen. An amber **✦ INSIGHT** tag marks devices the engine has flagged before anyone searched for them. |
-| **Selected device** (middle) | Big current value, **1m / 5m / 15m** timeline with warning and critical bands shaded, or **Log** view (sorted readings with deltas). **Open in Ingestion ↗** jumps to the Part 1 view. |
+| **Selected device** (middle) | Big current value, **1m / 5m / 15m** timeline with warning and critical bands shaded, or **Log** view (sorted readings with deltas). **Open in Ingestion** jumps to the Part 1 view. |
 | **Manual override** (middle) | Turn ON / OFF / Toggle for the selected pump, valve or relay; group commands (Shut down all valves, Stop all pumps, Emergency stop); **Undo** and the undo stack with the next undo highlighted. |
-| **Suggested Actions** (right) | Ranked cards - LEARNED, SEQUENCE, ZONE RULE, FORECAST - each with confidence, evidence, and **▶ Run** / **Show device**. *Learned patterns* expands to show the strongest condition → response patterns the engine has learned. |
+| **Suggested Actions** (right) | Ranked cards - LEARNED, SEQUENCE, ZONE RULE, FORECAST - each with confidence, evidence, and **Run** / **Show device**. *Learned patterns* expands to show the strongest condition → response patterns the engine has learned. |
 | **Live command stream** (right) | Every alert, recovery, outage, command, undo and acknowledgement, newest first. Alerts that came through the priority lane carry a red **PRIORITY LANE** tag with their latency and how many packets they jumped. |
 
   
