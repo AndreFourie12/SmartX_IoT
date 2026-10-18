@@ -5,7 +5,7 @@
   <p align="center">
     PROG7312 POE: SmartX, an application for monitoring and managing distributed IoT environments
     <br />
-    <b>Part 2: Real-Time Processing &amp; Device Management</b>
+    <b>Part 2: Real-Time Processing and Device Management</b>
     <br />
     <br />
   </p>
@@ -28,39 +28,35 @@
 
 
 ## Table of Contents
-<ol>
-  <li>
-    <a href="#project-overview">Project Overview</a>
-    <ul>
-      <li><a href="#projects-in-the-solution">Projects in the Solution</a></li>
-      <li><a href="#built-with">Built With</a></li>
-      <li><a href="#research-task">Research Task</a></li>
-    </ul>
-  </li>
-  <li>
-    <a href="#getting-started">Getting Started</a>
-    <ul>
-      <li><a href="#prerequisites">Prerequisites</a></li>
-      <li><a href="#option-1-visual-studio">Option 1: Visual Studio</a></li>
-      <li><a href="#option-2-terminal">Option 2: Terminal</a></li>
-      <li><a href="#option-3-api-in-docker">Option 3: API in Docker</a></li>
-    </ul>
-  </li>
-  <li><a href="#whats-new-in-part-2">What's New in Part 2</a></li>
-  <li>
-    <a href="#using-the-application">Using the Application</a>
-    <ul>
-      <li><a href="#navigation">Navigation</a></li>
-      <li><a href="#ingestion-page-part-1">Ingestion Page (Part 1)</a></li>
-      <li><a href="#command-stream-page-part-2">Command Stream Page (Part 2)</a></li>
-      <li><a href="#simulated-device-fleet">Simulated Device Fleet</a></li>
-    </ul>
-  </li>
-  <li><a href="#part-2-walkthrough">Part 2 Walkthrough</a></li>
-  <li><a href="#where-to-find-each-technical-requirement">Where to Find Each Technical Requirement</a></li>
-  <li><a href="#architecture-notes">Architecture Notes</a></li>
-  <li><a href="#video-demonstration">Video Demonstration</a></li>
-</ol>
+
+1. [Project Overview](#project-overview)
+   - [Projects in the Solution](#projects-in-the-solution)
+   - [Built With](#built-with)
+   - [Research Task](#research-task)
+2. [Getting Started](#getting-started)
+   - [Prerequisites](#prerequisites)
+   - [Option 1: Visual Studio](#option-1-visual-studio)
+   - [Option 2: Terminal](#option-2-terminal)
+   - [Option 3: API in Docker](#option-3-api-in-docker)
+3. [What's New in Part 2](#whats-new-in-part-2)
+4. [Using the Application](#using-the-application)
+   - [Navigation](#navigation)
+   - [Ingestion Page (Part 1)](#ingestion-page-part-1)
+   - [Command Stream Page (Part 2)](#command-stream-page-part-2)
+   - [Simulated Device Fleet](#simulated-device-fleet)
+5. [Part 2 Walkthrough](#part-2-walkthrough)
+   - [Queue and PriorityQueue](#1-queue-and-priorityqueue)
+   - [Stack](#2-stack)
+   - [Dictionary](#3-dictionary)
+   - [SortedDictionary](#4-sorteddictionary)
+   - [HashSet](#5-hashset)
+   - [Search and Filter](#6-search-and-filter)
+   - [Predictive Action Engine](#7-predictive-action-engine)
+6. [Where to Find Each Technical Requirement](#where-to-find-each-technical-requirement)
+   - [Part 1 Requirements](#part-1-requirements)
+   - [Part 2 Requirements](#part-2-requirements)
+7. [Architecture Notes](#architecture-notes)
+8. [Video Demonstration](#video-demonstration)
 
 
 
@@ -87,7 +83,7 @@ Part 1 built the static ingestion gateway. Part 2 turns it into a real-time proc
 
 ### Research Task
 
-The research part of the project can be found here -> [View the research paper](ST10438312_PROG7312_Part_1_Research.pdf)
+The research part of the project can be found here: [View the research paper](ST10438312_PROG7312_Part_1_Research.pdf)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -109,7 +105,7 @@ Both the API and the client have to be running. The client connects to the API a
 ### Option 1: Visual Studio
 
 1. Open `SmartX/SmartX.slnx`.
-2. Right-click the solution → **Configure Startup Projects** → **Multiple startup projects**.
+2. Right-click the solution, choose **Configure Startup Projects**, then select **Multiple startup projects**.
 3. Set both **SmartX.Api** and **SmartX.Client** to **Start**.
 4. Press **F5**.
 
@@ -134,7 +130,7 @@ dotnet build SmartX.slnx
 dotnet run --project SmartX.Api
 ```
 
-This starts the gateway on **http://localhost:5224**. The 15 simulated devices then register themselves, upload some history and start reporting. When you see *"Smart-X device fleet online: 15 simulated nodes reporting … over HTTP"*, it's ready. Leave this terminal running.
+This starts the gateway on **http://localhost:5224**. The 15 simulated devices then register themselves, upload some history and start reporting. When you see the line *"Smart-X device fleet online: 15 simulated nodes reporting"*, it's ready. Leave this terminal running.
 
 **3. Start the WPF client** (in a second terminal)
 
@@ -192,9 +188,9 @@ Switching pillars never reloads anything, because each page is created once and 
 
 ### Ingestion Page (Part 1)
 
-- **Left sidebar** - the deployment hierarchy tree (Facility → Zone → Sub-Zone), plus **Add Sensor** and **Validate Hierarchy**.
+- **Left sidebar** - the deployment hierarchy tree (Facility, Zone, Sub-Zone), plus **Add Sensor** and **Validate Hierarchy**.
 - **Dark header** - the **Telemetry Pulse** health gauge.
-- **Registered sensors** - the device table, filtered by what is selected in the tree. **Open in Command Stream ↗** opens the selected device on the Part 2 page.
+- **Registered sensors** - the device table, filtered by what is selected in the tree. **Open in Command Stream** opens the selected device on the Part 2 page.
 - **Bottom** - telemetry readings (with **Simulate Batch**) and attachments for the selected device, then the **Smart Meter Aggregation** strip, which uses the overloaded `+` operator.
 
 ### Command Stream Page (Part 2)
@@ -202,10 +198,10 @@ Switching pillars never reloads anything, because each page is created once and 
 | Area | What it shows |
 |---|---|
 | **Header** | A **Live** pill while the once-a-second refresh reaches the gateway (**Gateway unreachable** when it doesn't). **ROUTINE QUEUE** depth and average wait; **ALERT LANE** depth and average wait (hover the wait to see how many packets the last alert jumped); **THROUGHPUT** against the 200/s budget; **DUPLICATES BLOCKED** by the HashSets, with active faults and offline devices underneath. The **Simulate critical alert** and **Reconnect storm (load test)** buttons trigger those scenarios on demand. |
-| **Device fleet** (left) | Search box, **Anticipated** devices the engine predicts you'll need, a **Category** dropdown and an **Alert state** dropdown (each "All" or one value), **Clear filters**, and the fleet sorted most urgent first. A **✦ Insight** tag marks devices the engine has flagged before anyone searched for them. |
-| **Selected device** (middle) | Current value, a **1m / 5m / 15m** timeline with the warning and critical bands shaded, or the **Log** view (readings in time order with the change from the previous one). **Open in Ingestion ↗** jumps to the Part 1 page. |
+| **Device fleet** (left) | Search box, **Anticipated** devices the engine predicts you'll need, a **Category** dropdown and an **Alert state** dropdown (each "All" or one value), **Clear filters**, and the fleet sorted most urgent first. An **Insight** tag marks devices the engine has flagged before anyone searched for them. |
+| **Selected device** (middle) | Current value, a **1m / 5m / 15m** timeline with the warning and critical bands shaded, or the **Log** view (readings in time order with the change from the previous one). **Open in Ingestion** jumps to the Part 1 page. |
 | **Manual override** (middle) | **Turn ON / Turn OFF / Toggle** for the selected pump, valve or relay; group commands (**Shut down all valves**, **Stop all pumps**, **Emergency stop**); **Undo** and the **UNDO STACK**, with the next undo highlighted. |
-| **Suggested actions** (right) | Up to six ranked cards (LEARNED, SEQUENCE, ZONE RULE, FORECAST), each with its confidence, the reason behind it, and **Run** / **Show device**. **Learned patterns** expands to show the strongest condition → response patterns the engine has learned. |
+| **Suggested actions** (right) | Up to six ranked cards (LEARNED, SEQUENCE, ZONE RULE, FORECAST), each with its confidence, the reason behind it, and **Run** / **Show device**. **Learned patterns** expands to show the strongest condition and response patterns the engine has learned. |
 | **Command stream** (right) | Every alert, recovery, outage, command, undo and confirmation, newest first. Alerts that came through the alert lane carry a red **Priority lane** tag with their latency and how many packets they jumped. |
 
 ### Simulated Device Fleet
@@ -245,7 +241,9 @@ How the simulation behaves:
 
 Each feature below can be tried from the UI, and most also from [`SmartX/SmartX.Api/SmartX.Api.http`](SmartX/SmartX.Api/SmartX.Api.http). Open it in Visual Studio and click **Send request** above a block. The `curl` commands are written for **Command Prompt or Git Bash**. For PowerShell, use the `Invoke-RestMethod` versions (PowerShell quotes JSON differently, and in Windows PowerShell `curl` is a different command).
 
-### 1. Queue&lt;T&gt; and PriorityQueue - critical alerts skip the line
+### 1. Queue and PriorityQueue
+
+Critical alerts skip the line.
 
 **From the UI**
 1. Open **Real-Time Command Stream** (Ctrl+2).
@@ -269,27 +267,31 @@ Both return **202 Accepted**. The first receipt says `"lane":"Routine"`; the sec
 Invoke-RestMethod -Method Post -Uri http://localhost:5224/api/sensors/ESP32-PWR-02/telemetry -ContentType 'application/json' -Body '{"dataType":"Int","intValue":870,"unit":"W"}'
 ```
 
-To see a spike overtake a backlog from the command line, start a storm first (`curl -X POST http://localhost:5224/api/simulator/storm`), send the spike, then check `GET /api/stream/pipeline` (`lastBypassCount`) or `GET /api/stream/history` (`"viaPriorityLane":true`, `"bypassed":…`).
+To see a spike overtake a backlog from the command line, start a storm first (`curl -X POST http://localhost:5224/api/simulator/storm`), send the spike, then check `GET /api/stream/pipeline` (`lastBypassCount`) or `GET /api/stream/history` (`"viaPriorityLane":true` and the `"bypassed"` count).
 
 **Thresholds that send a reading to the alert lane**
 
 | Category | Warning | Critical |
 |---|---|---|
-| Power (smart meters) | ≥ 250 W | ≥ 400 W |
-| Soil moisture | < 30 % or > 90 % | < 20 % |
-| Temperature | ≥ 35 °C | ≥ 40 °C |
-| Humidity (environmental) | < 25 % or > 85 % | - |
+| Power (smart meters) | 250 W and above | 400 W and above |
+| Soil moisture | Below 30% or above 90% | Below 20% |
+| Temperature | 35 degrees C and above | 40 degrees C and above |
+| Humidity (environmental) | Below 25% or above 85% | None |
 
 Inside the alert lane, Critical is processed before Warning, and alerts of the same severity in the order they arrived.
 
-### 2. Stack&lt;T&gt; - undo for manual overrides
+### 2. Stack
+
+Undo for manual overrides.
 
 1. In the fleet, select **Pump A** and click **Turn ON**. The row shows *ON pending* until the simulated pump picks up the command and reports back (about a second), then the command stream shows *"Pump A confirmed ON"*.
 2. Click **Shut down all valves**. The **UNDO STACK** now holds both commands, with the newest on top marked **NEXT UNDO**.
 3. Click **Undo**: both valves open again (each one goes back to its own previous state). Click **Undo** again: Pump A switches off. Last in, first out.
 4. Click **Shut down all valves** twice. The second one is refused because nothing would change, and it is **not** added to the stack, so Undo never lands on an empty step.
 
-### 3. Dictionary&lt;TKey, TValue&gt; - O(1) device lookup
+### 3. Dictionary
+
+O(1) device lookup.
 
 Every reading is matched to its device through a dictionary keyed by MAC address or node ID. Keys are normalised, so every spelling of a MAC address is the same key. Register a device with a lower-case, dash-separated MAC, then try the colon form:
 
@@ -303,7 +305,9 @@ curl -X POST http://localhost:5224/api/sensors -H "Content-Type: application/jso
 
 The first returns **201 Created** with id `24:6F:28:AA:BB:CC`; the second returns **409 Conflict**, because it's the same key. Device IDs are also case-insensitive (`esp32-pmp-01` finds Pump A).
 
-### 4. SortedDictionary - history in time order
+### 4. SortedDictionary
+
+Device history kept in time order.
 
 - Select any device: the timeline and **Log** view are read straight out of its `SortedDictionary`, already in time order.
 - Run a **Reconnect storm**: the buffered readings carry their original timestamps (up to 30 seconds old) and arrive out of order, but every timeline stays in the right order.
@@ -319,7 +323,9 @@ Invoke-RestMethod -Method Post -Uri http://localhost:5224/api/sensors/ESP32-ENV-
 
 (The `.http` file has the same request. Readings more than 24 hours old or stamped in the future are rejected with 400.) Each reading's key is its timestamp plus a sequence number, so two readings with the same timestamp never overwrite each other.
 
-### 5. HashSet&lt;T&gt; - no duplicate alerts
+### 5. HashSet
+
+No duplicate alerts.
 
 Cut the power to Climate Node 3 for 45 seconds:
 
@@ -329,22 +335,22 @@ curl -X POST "http://localhost:5224/api/simulator/outage/ESP32-ENV-03?seconds=45
 
 After 15 seconds of silence the command stream shows **one** *"Climate Node 3 went offline"*. The health check runs every 2 seconds and keeps finding it silent, but instead of repeating the alert, **DUPLICATES BLOCKED** in the header goes up. When the device comes back you get one *"reconnected"* message. Faults work the same way: a soil probe stuck below 20% reports every 3 seconds but only raises its alert once. `GET /api/stream/alerts` shows what is in the sets and the suppressed count.
 
-### 6. Search and filter
+### 6. Search and Filter
 
 Type in the search box: the text is matched, in any case, anywhere in a device's name, ID, zone or category, for example `pump`, `bay 2`, `soil` or `pmp-01`. Combine it with the two dropdowns, e.g. **Water Pump** with **Critical** shows only pumps that are critical. The gateway answers a filter from its index sets (the category set and the alert-state set are looked up and intersected) instead of scanning every device.
 
 API form: `GET /api/stream/devices?category=WaterPump&alert=Critical`. The API also accepts several of each, e.g. `&category=Valve&alert=Offline`; values in the same group are combined, and the two groups are intersected.
 
-### 7. Predictive Action engine
+### 7. Predictive Action Engine
 
 The engine starts with a few days of seeded operator history, so it has patterns to work with from the first second. Moisture Sensor B starts at 31% and is drying out:
 
-1. Shortly after the API starts, B drops below 30% and raises a **Moisture low** warning. Without anyone searching, **Pump A** is tagged **✦ Insight** in the fleet and shows under **Anticipated**, and **Suggested actions** shows **Turn ON Pump A**: *"Operators responded with this in 5 of 6 similar episodes"*. A **FORECAST** card predicts when B will drop below 20%.
+1. Shortly after the API starts, B drops below 30% and raises a **Moisture low** warning. Without anyone searching, **Pump A** gets an **Insight** tag in the fleet and shows under **Anticipated**, and **Suggested actions** shows **Turn ON Pump A**: *"Operators responded with this in 5 of 6 similar episodes"*. A **FORECAST** card predicts when B will drop below 20%.
 2. Type `Moisture Sensor B` in the search box and pause. The search is logged, and the engine predicts the next step from your last action.
 3. Click **Run** on *Turn ON Pump A*. The command is tagged *from suggestion*, Pump A confirms ON, and B's moisture starts **rising** on the timeline. The card's evidence now ends with *"(1 this session)"*, because it learned from what you did.
 4. Leave Pump A running: Moisture Sensor A (also fed by Pump A) eventually goes above 90%, and the engine suggests **Turn OFF Pump A** (learned 3 of 3).
 5. Click **Shut down all valves** while B is dry: a **ZONE RULE** card points out that *Valve 2 is closed, so no pump can get water to this bay until it opens*. This one needs no history; it works from where the devices are installed.
-6. Expand **Learned patterns** under the cards to see the strongest condition → response patterns behind the suggestions, and how often each one held.
+6. Expand **Learned patterns** under the cards to see the strongest condition and response patterns behind the suggestions, and how often each one held.
 
 The cards come from four sources: **LEARNED** (what operators did after the same condition), **SEQUENCE** (what usually follows your last action), **ZONE RULE** (the nearest pump, valve or relay in the same sub-zone, for when there is no history) and **FORECAST** (a trend heading for a threshold).
 
@@ -354,29 +360,29 @@ The cards come from four sources: **LEARNED** (what operators did after the same
 
 ## Where to Find Each Technical Requirement
 
-### Part 1
+### Part 1 Requirements
 
 | Requirement | Implementation |
 |---|---|
 | Generics (`TelemetryPacket<T>`) | [`TelemetryPacket.cs`](SmartX/SmartX.Shared/Telemetry/TelemetryPacket.cs) - constrained to `struct`; value formatting and numeric conversion use `typeof(T)` branches so the value is never boxed. |
 | Operator overloading | [`PowerReading.cs`](SmartX/SmartX.Shared/Telemetry/PowerReading.cs) - `+`, `-`, `<`, `>`, `==` and friends; used for the Smart Meter Aggregation strip in [`SensorIngestionView.xaml.cs`](SmartX/SmartX.Client/Views/SensorIngestionView.xaml.cs). |
-| Jagged arrays and List&lt;T&gt; | [`BatchTelemetryProcessor.cs`](SmartX/SmartX.Shared/Telemetry/BatchTelemetryProcessor.cs) - `T[][]` sampling windows into a pre-sized `List<TelemetryPacket<T>>`. |
-| Recursion | [`DeploymentValidator.cs`](SmartX/SmartX.Shared/Validation/DeploymentValidator.cs) - recursive Facility → Zone → Sub-Zone → Device validation with a depth guard. |
+| Jagged arrays and `List<T>` | [`BatchTelemetryProcessor.cs`](SmartX/SmartX.Shared/Telemetry/BatchTelemetryProcessor.cs) - `T[][]` sampling windows into a pre-sized `List<TelemetryPacket<T>>`. |
+| Recursion | [`DeploymentValidator.cs`](SmartX/SmartX.Shared/Validation/DeploymentValidator.cs) - recursive Facility, Zone, Sub-Zone and Device validation with a depth guard. |
 | API integration | Minimal API in [`SmartX/SmartX.Api/Endpoints`](SmartX/SmartX.Api/Endpoints), used by [`SmartXApiClient.cs`](SmartX/SmartX.Client/Services/SmartXApiClient.cs). |
-| Sensor registration | [`AddSensorDialog.xaml.cs`](SmartX/SmartX.Client/Dialogs/AddSensorDialog.xaml.cs) → `POST /api/sensors` ([`SensorEndpoints.cs`](SmartX/SmartX.Api/Endpoints/SensorEndpoints.cs)). |
+| Sensor registration | [`AddSensorDialog.xaml.cs`](SmartX/SmartX.Client/Dialogs/AddSensorDialog.xaml.cs) sends `POST /api/sensors` ([`SensorEndpoints.cs`](SmartX/SmartX.Api/Endpoints/SensorEndpoints.cs)). |
 | Media / log attachments | [`AttachmentEndpoints.cs`](SmartX/SmartX.Api/Endpoints/AttachmentEndpoints.cs), AES-256 encrypted on disk by [`FileEncryptionService.cs`](SmartX/SmartX.Api/Services/FileEncryptionService.cs). |
 | Engagement feature | "Telemetry Pulse" - [`EngagementService.cs`](SmartX/SmartX.Api/Services/EngagementService.cs) and the hand-drawn [`HealthGaugeControl`](SmartX/SmartX.Client/Controls/HealthGaugeControl.xaml.cs). |
 | Custom collection | [`TelemetryRingBuffer<T>`](SmartX/SmartX.Shared/Collections/TelemetryRingBuffer.cs) - also reused in Part 2 for the queue wait-time samples. |
 
-### Part 2
+### Part 2 Requirements
 
 | Requirement | Implementation |
 |---|---|
 | Main menu navigation, active pillar state | [`MainWindow.xaml.cs`](SmartX/SmartX.Client/MainWindow.xaml.cs) keeps one view per pillar in a `Dictionary<Pillar, FrameworkElement>`; views implement [`IModuleView`](SmartX/SmartX.Client/Navigation/Navigation.cs) to pause and resume polling, and `IDeviceFocus` for the links between pillars. |
-| Queue&lt;T&gt; - FIFO telemetry processing | [`TelemetryIngestionPipeline.cs`](SmartX/SmartX.Api/Streaming/TelemetryIngestionPipeline.cs) routine lane, processed by [`TelemetryProcessingService.cs`](SmartX/SmartX.Api/Streaming/TelemetryProcessingService.cs) at up to 20 readings every 100 ms. |
+| `Queue<T>` - FIFO telemetry processing | [`TelemetryIngestionPipeline.cs`](SmartX/SmartX.Api/Streaming/TelemetryIngestionPipeline.cs) routine lane, processed by [`TelemetryProcessingService.cs`](SmartX/SmartX.Api/Streaming/TelemetryProcessingService.cs) at up to 20 readings every 100 ms. |
 | Priority queue - critical alerts bypass the queue | Same pipeline: `PriorityQueue<IngestEnvelope, AlertPriority>` ([`IngestEnvelope.cs`](SmartX/SmartX.Api/Streaming/IngestEnvelope.cs) defines the severity-then-arrival order). Always processed first; a semaphore wakes the worker as soon as an alert arrives. |
-| Stack&lt;T&gt; - undo for override commands | [`CommandHistoryService.cs`](SmartX/SmartX.Api/Commands/CommandHistoryService.cs) - the undo stack, with each command storing every device's previous state. |
-| Dictionary - live devices by MAC / node ID | [`LiveDeviceRegistry.cs`](SmartX/SmartX.Api/Streaming/LiveDeviceRegistry.cs), with key normalisation in [`DeviceIdentifier.cs`](SmartX/SmartX.Shared/Models/DeviceIdentifier.cs). Index sets (category → IDs, alert state → IDs) drive the filters and group commands. |
+| `Stack<T>` - undo for override commands | [`CommandHistoryService.cs`](SmartX/SmartX.Api/Commands/CommandHistoryService.cs) - the undo stack, with each command storing every device's previous state. |
+| Dictionary - live devices by MAC / node ID | [`LiveDeviceRegistry.cs`](SmartX/SmartX.Api/Streaming/LiveDeviceRegistry.cs), with key normalisation in [`DeviceIdentifier.cs`](SmartX/SmartX.Shared/Models/DeviceIdentifier.cs). Index sets (category to IDs, alert state to IDs) drive the filters and group commands. |
 | SortedDictionary - history by timestamp | [`TelemetryTimelineStore.cs`](SmartX/SmartX.Api/Streaming/TelemetryTimelineStore.cs) per device, keyed by [`TimelineKey`](SmartX/SmartX.Api/Streaming/TimelineKey.cs) (timestamp, sequence); the event history in [`StreamEventLog.cs`](SmartX/SmartX.Api/Streaming/StreamEventLog.cs). Drawn by [`TimelineChart.cs`](SmartX/SmartX.Client/Controls/TimelineChart.cs). |
 | HashSet - unique faults and disconnected devices | [`AlertTracker.cs`](SmartX/SmartX.Api/Streaming/AlertTracker.cs), checked every 2 seconds by [`DeviceHealthMonitorService.cs`](SmartX/SmartX.Api/Streaming/DeviceHealthMonitorService.cs). |
 | Search and filter by category or alert state | `Query` in [`LiveDeviceRegistry.cs`](SmartX/SmartX.Api/Streaming/LiveDeviceRegistry.cs) (index set lookups and intersection, then a case-insensitive text match); UI in [`CommandStreamView.xaml`](SmartX/SmartX.Client/Views/CommandStreamView.xaml). |
@@ -401,6 +407,7 @@ The cards come from four sources: **LEARNED** (what operators did after the same
 - **Looking ahead to the final POE.** `SortedDictionary` is a red-black tree, but .NET doesn't expose a "seek to key" operation, so reading a time range walks from the start. The self-balancing tree in the final POE is meant to close that gap.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 
 
 
