@@ -42,7 +42,7 @@ namespace SmartX.Shared.Models
 
 
         /// <summary>
-        /// Human readable name for filter chips and labels.
+        /// Human readable name for filters and labels.
         /// </summary>
         public static string DisplayName(this SensorCategory category) => category switch
         {
