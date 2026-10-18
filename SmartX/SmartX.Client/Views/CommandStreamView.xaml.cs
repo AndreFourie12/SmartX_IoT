@@ -47,6 +47,10 @@ namespace SmartX.Client.Views
 
         private const int MaxEvents = 150;
 
+        // The header's Live pill: a dark green or red wash behind the dot and label.
+        private static readonly Brush LiveGreenTint = FrozenBrush(0x16, 0x3B, 0x2C);
+        private static readonly Brush LiveRedTint = FrozenBrush(0x3A, 0x1F, 0x27);
+
         private string? _selectedId;
         private DeviceStateDto? _selectedDevice;
         private string? _bannerDeviceId;
@@ -77,12 +81,12 @@ namespace SmartX.Client.Views
 
             CategoryFilter.ItemsSource = Enum.GetValues<SensorCategory>()
                 .Select(category => new FilterChoice<SensorCategory>(category.DisplayName(), category))
-                .Prepend(new FilterChoice<SensorCategory>("All categories", null))
+                .Prepend(new FilterChoice<SensorCategory>("All", null))
                 .ToList();
 
             AlertFilter.ItemsSource = new FilterChoice<DeviceAlertState>[]
             {
-                new("All alert states", null),
+                new("All", null),
                 new("Critical", DeviceAlertState.Critical),
                 new("Warning", DeviceAlertState.Warning),
                 new("Offline", DeviceAlertState.Offline),
@@ -202,8 +206,9 @@ namespace SmartX.Client.Views
                     {
                         _connected = true;
                         LiveDot.Fill = Palette.Get("StatusGreenDot");
-                        LiveText.Text = "LIVE";
+                        LiveText.Text = "Live";
                         LiveText.Foreground = LiveDot.Fill;
+                        LivePill.Background = LiveGreenTint;
                         LivePill.ToolTip = "Refreshed from the gateway every second.";
                     }
 
@@ -220,8 +225,9 @@ namespace SmartX.Client.Views
                 _connected = false;
                 _gatewayDown = true;
                 LiveDot.Fill = Palette.Get("StatusRed");
-                LiveText.Text = "GATEWAY UNREACHABLE";
+                LiveText.Text = "Gateway unreachable";
                 LiveText.Foreground = Palette.Get("StatusRed");
+                LivePill.Background = LiveRedTint;
                 ActionStatusText.Text = "Can't reach the gateway - retrying every second. Is SmartX.Api running?";
             }
             finally
@@ -247,23 +253,23 @@ namespace SmartX.Client.Views
         private void RenderPipeline(PipelineStatsDto pipeline, AlertSummaryDto alerts)
         {
             RoutineDepthText.Text = pipeline.RoutineDepth.ToString("N0");
-            RoutineDepthBar.Width = 138 * Math.Min(1, pipeline.RoutineDepth / 1500.0);
-            RoutineDepthBar.ToolTip = $"{pipeline.RoutineDepth:N0} routine packets waiting";
             RoutineWaitText.Text = $"avg wait {FormatMs(pipeline.RoutineAvgWaitMs)}";
 
             AlertDepthText.Text = pipeline.AlertDepth.ToString("N0");
             AlertWaitText.Text = $"avg wait {FormatMs(pipeline.AlertAvgWaitMs)}";
-            AlertBypassText.Text = pipeline.AlertProcessed == 0
-                ? "no alerts yet"
-                : $"last one jumped {pipeline.LastBypassCount:N0}";
+            AlertWaitText.ToolTip = pipeline.AlertProcessed == 0
+                ? "No alerts yet"
+                : $"The last alert jumped {pipeline.LastBypassCount:N0} queued routine packets";
 
             ThroughputValue.Text = $"{pipeline.ProcessedPerSecond:F1}/s";
-            BudgetText.Text = $"budget {pipeline.RoutineBudgetPerSecond}/s";
+            BudgetText.Text = $"of {pipeline.RoutineBudgetPerSecond}";
             ProcessedText.Text = $"{pipeline.RoutineProcessed + pipeline.AlertProcessed:N0} processed";
 
             DuplicatesText.Text = alerts.DuplicatesSuppressed.ToString("N0");
+            FaultsDot.Fill = Palette.Get(alerts.ActiveFaults > 0 ? "StatusRed" : "TextOnDarkMuted");
             FaultsText.Text = $"{alerts.ActiveFaults} active fault{(alerts.ActiveFaults == 1 ? "" : "s")}";
-            OfflineText.Text = $"{alerts.DisconnectedNodes} node{(alerts.DisconnectedNodes == 1 ? "" : "s")} offline";
+            FaultsText.Foreground = Palette.Get(alerts.ActiveFaults > 0 ? "StatusRed" : "TextOnDarkMuted");
+            OfflineText.Text = $"{alerts.DisconnectedNodes} offline";
         }
         //----------------------------------------------------------//
 
@@ -335,8 +341,9 @@ namespace SmartX.Client.Views
                 (row, insight) => row.Update(insight));
 
             InsightsEmpty.Visibility = _insights.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            InsightsCountText.Text = $"· top {snapshot.Insights.Count}";
             InsightsSubtitle.Text =
-                $"Learned from {snapshot.OperatorActionsLearned:N0} operator searches and commands, plus live trends. Top {snapshot.Insights.Count} ranked by a min-heap.";
+                $"From {snapshot.OperatorActionsLearned:N0} operator searches and commands, plus live trends · top {snapshot.Insights.Count} ranked by a min-heap";
 
             string patterns = string.Join("|", snapshot.Patterns.Select(p => $"{p.Condition}{p.Response}{p.Count}{p.Episodes}{p.LiveCount}"));
             if (patterns != _patternsSignature)
@@ -397,7 +404,7 @@ namespace SmartX.Client.Views
             while (_events.Count > MaxEvents)
                 _events.RemoveAt(_events.Count - 1);
 
-            EventCountText.Text = $"{_events.Count} events · newest first";
+            EventCountText.Text = $"· {_events.Count} events, newest first";
         }
         //----------------------------------------------------------//
 
@@ -416,6 +423,7 @@ namespace SmartX.Client.Views
                 DetailValue.Text = "—";
                 DetailUnit.Text = string.Empty;
                 DetailState.Text = "Pick a device from the fleet list.";
+                StyleStatePill(null);
                 DetailDot.Fill = Palette.Get("TextMuted");
                 Chart.Timeline = null;
                 RenderOverride(null);
@@ -429,20 +437,53 @@ namespace SmartX.Client.Views
             DetailUnit.Text = device.LastValue is null ? string.Empty : device.Unit;
             DetailState.Text = device.AlertReason
                 ?? (device.AlertState == DeviceAlertState.AwaitingData ? "No telemetry received yet." : "Within its normal range.");
+            StyleStatePill(device.AlertState);
 
             Chart.Timeline = timeline;
 
             if (timeline is not null)
             {
                 DetailFooter.Text =
-                    $"{timeline.Points.Count} readings in the last {_minutes} min · {timeline.TotalStored:N0} stored for this device · " +
-                    "read in timestamp order straight from the gateway's SortedDictionary, so late packets land in the right place.";
+                    $"{timeline.Points.Count} readings in the last {_minutes} min · " +
+                    "read in timestamp order from the gateway's SortedDictionary, so late packets land in the right place";
+                DetailFooter.ToolTip = $"{timeline.TotalStored:N0} readings stored for this device";
 
                 if (_showLog)
                     LogList.ItemsSource = BuildLog(timeline);
             }
 
             RenderOverride(device);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Colours the pill next to the big reading: red for critical, amber for warning, green when normal,
+        /// grey when there is no device or no data yet.
+        /// </summary>
+        private void StyleStatePill(DeviceAlertState? state)
+        {
+            var (background, foreground, glyph) = state switch
+            {
+                DeviceAlertState.Critical => ("StatusRedSoft", "StatusRedText", ""),
+                DeviceAlertState.Warning => ("StatusAmberSoft", "StatusAmber", ""),
+                DeviceAlertState.Normal => ("StatusGreenSoft", "StatusGreen", ""),
+                _ => ("NeutralSoft", "TextSecondary", "")
+            };
+
+            DetailStatePill.Visibility = Visibility.Visible;
+            DetailStatePill.Background = Palette.Get(background);
+            DetailState.Foreground = DetailStateIcon.Foreground = Palette.Get(foreground);
+            DetailStateIcon.Text = glyph;
+        }
+        //----------------------------------------------------------//
+
+
+        private static Brush FrozenBrush(byte r, byte g, byte b)
+        {
+            var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+            brush.Freeze();
+            return brush;
         }
         //----------------------------------------------------------//
 

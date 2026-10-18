@@ -6,10 +6,22 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
+        <!-- Windows' built-in icon font: Fluent Icons on Windows 11, MDL2 Assets on Windows 10 -->
+        <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+        <Style x:Key="Icon" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
         <!-- A text line that disappears when bound to null or empty -->
         <Style x:Key="CollapsibleText" TargetType="TextBlock">
             <Style.Triggers>
                 <Trigger Property="Text" Value="">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </Trigger>
+                <Trigger Property="Text" Value="{x:Null}">
                     <Setter Property="Visibility" Value="Collapsed" />
                 </Trigger>
             </Style.Triggers>
@@ -19,22 +31,49 @@
             <Setter Property="FontSize" Value="10.5" />
         </Style>
 
-        <Style x:Key="CardTitle" TargetType="TextBlock" BasedOn="{StaticResource SectionTitle}">
-            <Setter Property="FontSize" Value="17" />
-        </Style>
-
-        <Style x:Key="KpiDivider" TargetType="Border">
-            <Setter Property="Width" Value="1" />
-            <Setter Property="Height" Value="70" />
-            <Setter Property="Background" Value="{StaticResource ShellDarkAlt}" />
-        </Style>
-
-        <Style x:Key="KpiTile" TargetType="StackPanel">
-            <Setter Property="MinWidth" Value="138" />
-            <Setter Property="Margin" Value="22,0,24,0" />
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
+        <Style x:Key="CardCount" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+            <Setter Property="Margin" Value="8,1,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- ============ Header KPIs ============ -->
+        <Style x:Key="KpiDivider" TargetType="Border">
+            <Setter Property="Width" Value="1" />
+            <Setter Property="Height" Value="58" />
+            <Setter Property="Background" Value="{StaticResource ShellDarkLine}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="KpiTile" TargetType="StackPanel">
+            <Setter Property="MinWidth" Value="132" />
+            <Setter Property="Margin" Value="22,0,22,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="HeaderKpiValue" TargetType="TextBlock" BasedOn="{StaticResource KpiValue}">
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+
+        <Style x:Key="KpiInfo" TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+            <Setter Property="Text" Value="&#xE946;" />
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{StaticResource TextOnDarkMuted}" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="Cursor" Value="Help" />
+        </Style>
+
+        <!-- ============ Fleet list ============ -->
         <!-- Fleet row container: a full-width row with a divider under it, tinted when hovered or selected -->
         <Style x:Key="DeviceListItem" TargetType="ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -59,12 +98,144 @@
             </Setter>
         </Style>
 
+        <!-- Filter dropdown with its name inside the box: "[filter icon] Category  All  v". Tag holds the name. -->
         <Style x:Key="FilterCombo" TargetType="ComboBox">
             <Setter Property="FontSize" Value="13" />
-            <Setter Property="Padding" Value="10,8" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="{StaticResource CardBorder}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="MaxDropDownHeight" Value="320" />
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Cursor" Value="Hand" />
+                        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border x:Name="Bd" Background="Transparent" CornerRadius="5" Padding="10,7">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverGrey}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBlueSoft}" />
+                                            <Setter Property="Foreground" Value="{StaticResource AccentBlue}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Focusable="False" ClickMode="Press"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="Bd" Background="White" BorderBrush="{StaticResource CardBorder}"
+                                                BorderThickness="1" CornerRadius="8" SnapsToDevicePixels="True" />
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#CBD2DC" />
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource SelectedRowBorder}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <Grid IsHitTestVisible="False" Margin="12,9,12,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="&#xE71C;" Style="{StaticResource Icon}" FontSize="11" Foreground="{StaticResource TextMuted}" />
+                                <TextBlock Grid.Column="1" Text="{TemplateBinding Tag}" Foreground="{StaticResource TextSecondary}"
+                                           Margin="8,0,10,0" VerticalAlignment="Center" />
+                                <ContentPresenter Grid.Column="2" Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                  TextElement.FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="3" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10"
+                                           Foreground="{StaticResource TextSecondary}" Margin="8,0,0,0" />
+                            </Grid>
+
+                            <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
+                                   AllowsTransparency="True" Focusable="False" PopupAnimation="None">
+                                <Border Background="White" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
+                                        CornerRadius="8" Padding="4" Margin="0,4,0,0"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- "Learned patterns" fold-out: title on the left, chevron on the right that flips when open -->
+        <Style x:Key="PatternExpander" TargetType="Expander">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <DockPanel>
+                            <ToggleButton DockPanel.Dock="Top" Cursor="Hand"
+                                          IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Grid Background="Transparent">
+                                            <ContentPresenter Content="{Binding Header, RelativeSource={RelativeSource AncestorType=Expander}}"
+                                                              VerticalAlignment="Center" />
+                                            <TextBlock x:Name="Chevron" Text="&#xE70D;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                                                       Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                                <TextBlock.RenderTransform>
+                                                    <RotateTransform x:Name="ChevronTurn" />
+                                                </TextBlock.RenderTransform>
+                                            </TextBlock>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Chevron" Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <RotateTransform Angle="180" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="Body" Visibility="Collapsed" />
+                        </DockPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="Body" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </UserControl.Resources>
 
@@ -76,83 +247,94 @@
         </Grid.RowDefinitions>
 
         <!-- ==================== Header: live status, queue KPIs, test controls ==================== -->
-        <Border Grid.Row="0" Style="{StaticResource DarkCard}" CornerRadius="12" Padding="26,18">
+        <Border Grid.Row="0" Style="{StaticResource DarkCard}" CornerRadius="12" Padding="26,22">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" MinWidth="240" />
+                    <ColumnDefinition Width="*" MinWidth="260" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Real-Time Command Stream &amp; History" Style="{StaticResource PageTitle}" />
-                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                        <Border x:Name="LivePill" CornerRadius="11" Padding="10,3" Background="Transparent"
-                                BorderBrush="{StaticResource ShellDarkLine}" BorderThickness="1" VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <Ellipse x:Name="LiveDot" Width="7" Height="7" Fill="{StaticResource StatusAmberDot}"
-                                         Margin="0,0,8,0" VerticalAlignment="Center" />
-                                <TextBlock x:Name="LiveText" Text="CONNECTING" Style="{StaticResource TagText}" FontSize="11"
-                                           Foreground="{StaticResource StatusAmberDot}" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
-                        <TextBlock x:Name="ActionStatusText" Text="Watching the gateway's queues..."
-                                   FontSize="13" Foreground="{StaticResource TextOnDarkMuted}"
-                                   Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
+                    <Border x:Name="LivePill" CornerRadius="11" Padding="9,3" Background="#3A2F1A"
+                            HorizontalAlignment="Left" Margin="0,12,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="LiveDot" Width="7" Height="7" Fill="{StaticResource StatusAmberDot}"
+                                     Margin="0,0,7,0" VerticalAlignment="Center" />
+                            <TextBlock x:Name="LiveText" Text="Connecting" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{StaticResource StatusAmberDot}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <TextBlock x:Name="ActionStatusText"
+                               Text="Send commands, watch the gateway's queues and review alert history in real time."
+                               FontSize="13" Foreground="{StaticResource TextOnDarkMuted}" LineHeight="20"
+                               Margin="0,12,0,0" TextWrapping="Wrap" MaxWidth="440" HorizontalAlignment="Left" />
                 </StackPanel>
 
                 <!-- Queue KPIs -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                    <Border Style="{StaticResource KpiDivider}" />
-                    <StackPanel Style="{StaticResource KpiTile}"
-                                ToolTip="Routine packets wait here in arrival order: Queue&lt;T&gt;, first in, first out.">
-                        <TextBlock Text="ROUTINE QUEUE · FIFO" Style="{StaticResource KpiLabel}" />
-                        <TextBlock x:Name="RoutineDepthText" Text="0" Style="{StaticResource KpiValue}" />
-                        <Border Width="138" Height="3" CornerRadius="2" Background="#2A3347" HorizontalAlignment="Left" Margin="0,6,0,0">
-                            <Border x:Name="RoutineDepthBar" Width="0" CornerRadius="2" Background="{StaticResource AccentBlue}" HorizontalAlignment="Left" />
-                        </Border>
-                        <TextBlock x:Name="RoutineWaitText" Text="avg wait --" Style="{StaticResource KpiCaption}" Margin="0,6,0,0" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,8,0">
+                    <StackPanel Style="{StaticResource KpiTile}" Margin="0,0,22,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ROUTINE QUEUE · FIFO" Style="{StaticResource KpiLabel}" />
+                            <TextBlock Style="{StaticResource KpiInfo}"
+                                       ToolTip="Routine packets wait here in arrival order: Queue&lt;T&gt;, first in, first out." />
+                        </StackPanel>
+                        <TextBlock x:Name="RoutineDepthText" Text="0" Style="{StaticResource HeaderKpiValue}" />
+                        <TextBlock x:Name="RoutineWaitText" Text="avg wait --" Style="{StaticResource KpiCaption}" Margin="0,3,0,0" />
                     </StackPanel>
 
                     <Border Style="{StaticResource KpiDivider}" />
-                    <StackPanel Style="{StaticResource KpiTile}"
-                                ToolTip="Readings that break a threshold go into a PriorityQueue that is always emptied first.">
-                        <TextBlock Text="ALERT LANE · PRIORITY" Style="{StaticResource KpiLabel}" />
-                        <TextBlock x:Name="AlertDepthText" Text="0" Style="{StaticResource KpiValue}" Foreground="#F87171" />
-                        <TextBlock x:Name="AlertWaitText" Text="avg wait --" Style="{StaticResource KpiCaption}" Margin="0,4,0,0" />
-                        <TextBlock x:Name="AlertBypassText" Text="no bypasses yet" Style="{StaticResource KpiCaption}" />
+                    <StackPanel Style="{StaticResource KpiTile}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ALERT LANE · PRIORITY" Style="{StaticResource KpiLabel}" />
+                            <TextBlock Style="{StaticResource KpiInfo}"
+                                       ToolTip="Readings that break a threshold go into a PriorityQueue that is always emptied first." />
+                        </StackPanel>
+                        <TextBlock x:Name="AlertDepthText" Text="0" Style="{StaticResource HeaderKpiValue}" />
+                        <TextBlock x:Name="AlertWaitText" Text="avg wait --" Style="{StaticResource KpiCaption}" Margin="0,3,0,0" />
                     </StackPanel>
 
                     <Border Style="{StaticResource KpiDivider}" />
                     <StackPanel Style="{StaticResource KpiTile}" MinWidth="118">
                         <TextBlock Text="THROUGHPUT" Style="{StaticResource KpiLabel}" />
-                        <TextBlock x:Name="ThroughputValue" Text="--" Style="{StaticResource KpiValue}" />
-                        <TextBlock x:Name="BudgetText" Text="budget --" Style="{StaticResource KpiCaption}" Margin="0,4,0,0" />
-                        <TextBlock x:Name="ProcessedText" Text="--" Style="{StaticResource KpiCaption}" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="ThroughputValue" Text="--" Style="{StaticResource HeaderKpiValue}" />
+                            <TextBlock x:Name="BudgetText" Text="" FontSize="12" Foreground="{StaticResource TextOnDarkMuted}"
+                                       VerticalAlignment="Bottom" Margin="6,0,0,4"
+                                       ToolTip="The gateway's routine processing budget per second." />
+                        </StackPanel>
+                        <TextBlock x:Name="ProcessedText" Text="--" Style="{StaticResource KpiCaption}" Margin="0,3,0,0" />
                     </StackPanel>
 
                     <Border Style="{StaticResource KpiDivider}" />
-                    <StackPanel Style="{StaticResource KpiTile}"
+                    <StackPanel Style="{StaticResource KpiTile}" Margin="22,0,0,0"
                                 ToolTip="Repeat alerts for a fault or outage that is already active, refused by the gateway's HashSets.">
                         <TextBlock Text="DUPLICATES BLOCKED" Style="{StaticResource KpiLabel}" />
-                        <TextBlock x:Name="DuplicatesText" Text="0" Style="{StaticResource KpiValue}" />
-                        <TextBlock x:Name="FaultsText" Text="-- active" Style="{StaticResource KpiCaption}" Margin="0,4,0,0" />
-                        <TextBlock x:Name="OfflineText" Text="-- offline" Style="{StaticResource KpiCaption}" />
+                        <TextBlock x:Name="DuplicatesText" Text="0" Style="{StaticResource HeaderKpiValue}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                            <Ellipse x:Name="FaultsDot" Width="6" Height="6" Fill="{StaticResource TextOnDarkMuted}"
+                                     VerticalAlignment="Center" Margin="0,2,6,0" />
+                            <TextBlock x:Name="FaultsText" Text="-- active" Style="{StaticResource KpiCaption}" Margin="0" />
+                            <TextBlock Text=" · " Style="{StaticResource KpiCaption}" Margin="0" />
+                            <TextBlock x:Name="OfflineText" Text="-- offline" Style="{StaticResource KpiCaption}" Margin="0" />
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
 
                 <!-- Test controls -->
-                <StackPanel Grid.Column="2" VerticalAlignment="Center" Width="250" Margin="6,0,0,0">
-                    <Button x:Name="InjectAlertButton" Style="{StaticResource DarkDangerButton}" Click="OnInjectAlertClick"
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" Width="258" Margin="14,0,0,0">
+                    <Button x:Name="InjectAlertButton" Style="{StaticResource DarkButton}" FontWeight="Normal"
+                            HorizontalContentAlignment="Stretch" Click="OnInjectAlertClick"
                             ToolTip="Send one out-of-range device packet to the API and watch it skip the routine queue.">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="M 8.5 1 L 2.5 9 L 7 9 L 6 15 L 12.5 6.5 L 8 6.5 Z" Stroke="#FCA5A5" StrokeThickness="1.4"
-                                  StrokeLineJoin="Round" Width="15" Height="16" Stretch="None" VerticalAlignment="Center" Margin="0,0,10,0" />
-                            <TextBlock Text="Simulate critical alert" VerticalAlignment="Center" />
-                            <Path Data="M 0 0 L 4 4 L 8 0" Stroke="#FECACA" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                  Width="8" Height="5" Stretch="None" VerticalAlignment="Center" Margin="12,1,0,0" />
-                        </StackPanel>
+                        <Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE945;" Style="{StaticResource Icon}" FontSize="14" Foreground="#F87171" Margin="0,0,10,0" />
+                                <TextBlock Text="Simulate critical alert" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Foreground="{StaticResource TextOnDarkMuted}"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
                         <Button.ContextMenu>
                             <ContextMenu Style="{StaticResource DarkContextMenu}" Tag="SEND ONE OUT-OF-RANGE PACKET" VerticalOffset="6"
                                          MinWidth="{Binding PlacementTarget.ActualWidth, RelativeSource={RelativeSource Self}}">
@@ -225,12 +407,10 @@
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
-                    <Button x:Name="StormButton" Style="{StaticResource DarkButton}" Margin="0,10,0,0" Click="OnStormClick"
+                    <Button x:Name="StormButton" Style="{StaticResource DarkButton}" FontWeight="Normal" Margin="0,10,0,0" Click="OnStormClick"
                             ToolTip="The simulated fleet flushes 1,200 buffered readings at once - far beyond the gateway's processing budget - with one severe spike hidden halfway through.">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="M 1 3 L 14 3 M 1 7.5 L 14 7.5 M 1 12 L 14 12" Stroke="{StaticResource TextOnDark}" StrokeThickness="1.4"
-                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                  Width="15" Height="15" Stretch="None" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="13" Foreground="{StaticResource TextOnDark}" Margin="0,0,10,0" />
                             <TextBlock Text="Reconnect storm (load test)" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -249,15 +429,17 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Text="⚡" FontSize="17" Foreground="{StaticResource StatusRed}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <TextBlock Text="&#xE783;" Style="{StaticResource Icon}" FontSize="16" Foreground="{StaticResource StatusRed}" Margin="0,0,12,0" />
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock x:Name="BannerTitle" FontWeight="SemiBold" Foreground="#991B1B" FontSize="13" />
                     <TextBlock x:Name="BannerDetail" Foreground="#7F1D1D" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                     <Button Content="Show device" Style="{StaticResource SmallButton}" Click="OnBannerFocusClick" />
-                    <Button Content="✕" Style="{StaticResource LinkButton}" Foreground="#991B1B" FontSize="13"
-                            Margin="14,0,2,0" Click="OnBannerCloseClick" ToolTip="Dismiss" />
+                    <Button Style="{StaticResource LinkButton}" Foreground="#991B1B"
+                            Margin="14,0,2,0" Click="OnBannerCloseClick" ToolTip="Dismiss">
+                        <TextBlock Text="&#xE711;" Style="{StaticResource Icon}" FontSize="11" />
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -265,55 +447,69 @@
         <!-- ==================== Body ==================== -->
         <Grid Grid.Row="2" Margin="0,18,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.3*" MinWidth="390" MaxWidth="540" />
+                <ColumnDefinition Width="1*" MinWidth="380" MaxWidth="500" />
                 <ColumnDefinition Width="18" />
                 <ColumnDefinition Width="2.1*" MinWidth="460" />
                 <ColumnDefinition Width="18" />
-                <ColumnDefinition Width="*" MinWidth="360" MaxWidth="440" />
+                <ColumnDefinition Width="1.1*" MinWidth="380" MaxWidth="520" />
             </Grid.ColumnDefinitions>
 
             <!-- ============ Device fleet: search + filters ============ -->
             <Border Grid.Column="0" Style="{StaticResource StreamCard}">
-                <DockPanel Margin="18,18,8,10">
-                    <Grid DockPanel.Dock="Top" Margin="0,0,10,14">
+                <DockPanel Margin="18,20,6,0">
+                    <Grid DockPanel.Dock="Top" Margin="0,0,12,14">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Device fleet" Style="{StaticResource CardTitle}" />
-                            <TextBlock x:Name="FleetCountText" Style="{StaticResource MutedText}" FontSize="13" Margin="8,1,0,0" />
+                            <TextBlock x:Name="FleetCountText" Style="{StaticResource CardCount}" />
                         </StackPanel>
                         <Button x:Name="ClearFiltersButton" Content="Clear filters" Style="{StaticResource LinkButton}"
-                                Foreground="{StaticResource TextSecondary}" FontSize="13"
-                                HorizontalAlignment="Right" Click="OnClearFiltersClick" IsEnabled="False" />
+                                FontSize="12.5" HorizontalAlignment="Right" Click="OnClearFiltersClick" IsEnabled="False" />
                     </Grid>
 
                     <!-- Search -->
                     <Border DockPanel.Dock="Top" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
-                            CornerRadius="8" Background="#FAFBFC" Margin="0,0,10,0">
+                            CornerRadius="8" Background="White" Margin="0,0,12,0">
                         <Grid>
-                            <Path Data="M 5.5 1 A 4.5 4.5 0 1 0 5.51 1 M 8.8 8.8 L 12 12" Stroke="{StaticResource TextSecondary}"
-                                  StrokeThickness="1.4" StrokeEndLineCap="Round" Width="13" Height="13" Stretch="None"
-                                  HorizontalAlignment="Left" VerticalAlignment="Center" Margin="14,0,0,0" />
+                            <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" FontSize="12.5" Foreground="{StaticResource TextSecondary}"
+                                       HorizontalAlignment="Left" Margin="14,0,0,0" IsHitTestVisible="False" />
                             <TextBox x:Name="SearchBox" BorderThickness="0" Background="Transparent" Padding="36,10,30,10"
                                      FontSize="13.5" VerticalContentAlignment="Center"
                                      TextChanged="OnSearchTextChanged" KeyDown="OnSearchKeyDown" />
-                            <TextBlock x:Name="SearchPlaceholder" Text="Search by name, ID, zone or category"
-                                       IsHitTestVisible="False" Foreground="{StaticResource TextSecondary}"
+                            <TextBlock x:Name="SearchPlaceholder" Text="Search name, ID, zone..."
+                                       IsHitTestVisible="False" Foreground="{StaticResource TextMuted}"
                                        Margin="38,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            <Button x:Name="ClearSearchButton" Content="✕" Style="{StaticResource LinkButton}"
+                            <Button x:Name="ClearSearchButton" Style="{StaticResource LinkButton}"
                                     Foreground="{StaticResource TextMuted}" HorizontalAlignment="Right" Margin="0,0,12,0"
-                                    Visibility="Collapsed" Click="OnClearSearchClick" ToolTip="Clear search" />
+                                    Visibility="Collapsed" Click="OnClearSearchClick" ToolTip="Clear search">
+                                <TextBlock Text="&#xE711;" Style="{StaticResource Icon}" FontSize="10" />
+                            </Button>
                         </Grid>
                     </Border>
 
+                    <!-- Category and alert-state filters: one choice each, "All" by default -->
+                    <Grid DockPanel.Dock="Top" Margin="0,12,12,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <ComboBox x:Name="CategoryFilter" Tag="Category" Style="{StaticResource FilterCombo}"
+                                  SelectionChanged="OnFilterChanged" />
+                        <ComboBox x:Name="AlertFilter" Grid.Column="2" Tag="Alert state" Style="{StaticResource FilterCombo}"
+                                  SelectionChanged="OnFilterChanged" />
+                    </Grid>
+
                     <!-- Searches the engine expects the operator to make next -->
-                    <StackPanel x:Name="PredictedPanel" DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,14,10,0"
+                    <StackPanel x:Name="PredictedPanel" DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,14,12,0"
                                 Visibility="Collapsed"
                                 ToolTip="Predicted from operator history: what usually gets searched next, and what the active alerts usually lead to.">
-                        <TextBlock Text="✦ ANTICIPATED" Style="{StaticResource TagText}" FontSize="11" Foreground="{StaticResource InsightText}"
+                        <TextBlock Text="Anticipated" FontSize="12.5" Foreground="{StaticResource TextSecondary}"
                                    VerticalAlignment="Center" Margin="0,0,10,0" />
                         <ItemsControl x:Name="PredictedList">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" />
+                                    <WrapPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
@@ -321,13 +517,15 @@
                                     <Button Click="OnPredictedSearchClick" Cursor="Hand" Margin="0,0,6,0">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
-                                                <Border x:Name="Bd" Background="{StaticResource InsightSoft}" BorderBrush="{StaticResource InsightBorder}"
+                                                <Border x:Name="Bd" Background="{StaticResource AccentBlueSoft}" BorderBrush="{StaticResource SelectedRowBorder}"
                                                         BorderThickness="1" CornerRadius="12" Padding="10,3">
-                                                    <TextBlock Text="{Binding}" FontSize="12.5" Foreground="#92400E" />
+                                                    <TextBlock FontSize="12.5" Foreground="{StaticResource AccentBlue}">
+                                                        <Run Text="✦  " /><Run Text="{Binding Mode=OneWay}" />
+                                                    </TextBlock>
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="Bd" Property="Background" Value="#FDE68A" />
+                                                        <Setter TargetName="Bd" Property="Background" Value="#DCE7FD" />
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -338,28 +536,7 @@
                         </ItemsControl>
                     </StackPanel>
 
-                    <!-- Category and alert-state filters: one choice each, "All" by default -->
-                    <Grid DockPanel.Dock="Top" Margin="0,16,10,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="10" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Text="OPERATIONAL CATEGORY" Style="{StaticResource EyebrowSmall}" Margin="0,0,0,7" />
-                        <ComboBox x:Name="CategoryFilter" Grid.Row="1" Style="{StaticResource FilterCombo}"
-                                  DisplayMemberPath="Label" SelectionChanged="OnFilterChanged" />
-
-                        <TextBlock Grid.Column="2" Text="ALERT STATE" Style="{StaticResource EyebrowSmall}" Margin="0,0,0,7" />
-                        <ComboBox x:Name="AlertFilter" Grid.Row="1" Grid.Column="2" Style="{StaticResource FilterCombo}"
-                                  DisplayMemberPath="Label" SelectionChanged="OnFilterChanged" />
-                    </Grid>
-
-                    <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource CardBorder}" Margin="-18,16,-8,0" />
+                    <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource CardBorder}" Margin="-18,16,-6,0" />
 
                     <Grid>
                         <ListBox x:Name="DeviceList" BorderThickness="0" Background="Transparent" Margin="-18,0,0,0"
@@ -369,20 +546,29 @@
                                  SelectionChanged="OnDeviceSelectionChanged">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="22,15,16,15">
+                                    <Grid Margin="18,14,16,14">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <Ellipse Width="8" Height="8" Fill="{Binding StatusBrush}" VerticalAlignment="Center" Margin="0,0,14,0" />
+                                        <!-- Status marker: a dot, or a red diamond while critical -->
+                                        <Grid Width="10" Height="10" VerticalAlignment="Top" Margin="0,5,12,0">
+                                            <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{Binding StatusBrush}" />
+                                            <Rectangle x:Name="StatusDiamond" Width="8" Height="8" Fill="{Binding StatusBrush}"
+                                                       Visibility="Collapsed" RenderTransformOrigin="0.5,0.5">
+                                                <Rectangle.RenderTransform>
+                                                    <RotateTransform Angle="45" />
+                                                </Rectangle.RenderTransform>
+                                            </Rectangle>
+                                        </Grid>
 
                                         <StackPanel Grid.Column="1" VerticalAlignment="Top">
                                             <!-- The status tag drops under the name when the column is narrow -->
                                             <WrapPanel>
                                                 <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="14"
-                                                           Foreground="{StaticResource TextPrimary}" Margin="0,0,8,0" />
+                                                           Foreground="{StaticResource TextPrimary}" Margin="0,0,10,0" />
                                                 <Border Background="{Binding StatusSoftBrush}" CornerRadius="4" Padding="6,1"
                                                         Margin="0,2,0,0" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding StatusLabel}" Style="{StaticResource TagText}" FontSize="10"
@@ -393,50 +579,35 @@
                                                        Foreground="{StaticResource TextSecondary}" Margin="0,5,0,0" TextWrapping="Wrap" LineHeight="18" />
                                             <TextBlock Text="{Binding AlertReason}" Style="{StaticResource CollapsibleText}"
                                                        Foreground="{Binding StatusBrush}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,0" />
-                                            <TextBlock Text="{Binding HighlightReason}" Style="{StaticResource CollapsibleText}"
-                                                       Foreground="{StaticResource InsightText}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                            <Grid Margin="0,6,0,0" Visibility="{Binding Highlighted, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Background="{StaticResource AccentBlueSoft}" CornerRadius="4" Padding="7,1"
+                                                        VerticalAlignment="Top" Margin="0,0,8,0">
+                                                    <TextBlock Text="✦ Insight" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource AccentBlue}" />
+                                                </Border>
+                                                <TextBlock Grid.Column="1" Text="{Binding HighlightReason}" FontSize="12.5"
+                                                           Foreground="{StaticResource AccentBlue}" TextWrapping="Wrap" Margin="0,1,0,0" />
+                                            </Grid>
                                         </StackPanel>
 
-                                        <StackPanel Grid.Column="2" VerticalAlignment="Top" MinWidth="92" Margin="12,0,0,0">
-                                            <Border Background="{StaticResource InsightSoft}" CornerRadius="5" Padding="8,2"
-                                                    Margin="0,0,0,8" HorizontalAlignment="Right"
-                                                    Visibility="{Binding Highlighted, Converter={StaticResource BoolToVisibility}}">
-                                                <TextBlock Text="✦ INSIGHT" Style="{StaticResource TagText}" FontSize="11" Foreground="#92400E" />
-                                            </Border>
-                                            <Border HorizontalAlignment="Right">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Style.Triggers>
-                                                            <!-- Pumps, valves and relays show their state as a small grey tag -->
-                                                            <DataTrigger Binding="{Binding IsActuator}" Value="True">
-                                                                <Setter Property="Background" Value="{StaticResource NeutralSoft}" />
-                                                                <Setter Property="CornerRadius" Value="6" />
-                                                                <Setter Property="Padding" Value="9,2" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <TextBlock Text="{Binding ValueText}" FontFamily="{StaticResource MonoFont}" FontWeight="Bold"
-                                                           Foreground="{StaticResource TextPrimary}">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="FontSize" Value="14.5" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsActuator}" Value="True">
-                                                                    <Setter Property="FontSize" Value="12.5" />
-                                                                    <Setter Property="Foreground" Value="#374151" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </Border>
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Top" MinWidth="70" Margin="12,0,0,0">
+                                            <TextBlock Text="{Binding ValueText}" FontSize="14" Foreground="{Binding ValueBrush}"
+                                                       HorizontalAlignment="Right" />
                                             <TextBlock Text="{Binding PendingText}" Style="{StaticResource CollapsibleText}"
                                                        FontSize="11.5" Foreground="{StaticResource StatusAmber}" HorizontalAlignment="Right" Margin="0,3,0,0" />
                                             <TextBlock Text="{Binding LastSeenText}" FontSize="12" Foreground="{StaticResource TextSecondary}"
                                                        HorizontalAlignment="Right" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Grid>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsCritical}" Value="True">
+                                            <Setter TargetName="StatusDot" Property="Visibility" Value="Collapsed" />
+                                            <Setter TargetName="StatusDiamond" Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
@@ -456,37 +627,47 @@
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" Style="{StaticResource StreamCard}">
-                    <DockPanel Margin="24,20,24,16">
+                    <DockPanel Margin="26,22,26,18">
                         <Grid DockPanel.Dock="Top">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Ellipse x:Name="DetailDot" Width="10" Height="10" Fill="{StaticResource TextMuted}" Margin="0,0,11,0" VerticalAlignment="Center" />
-                                <TextBlock x:Name="DetailName" Text="No device selected" Style="{StaticResource SectionTitle}" FontSize="20" />
+                                <Ellipse x:Name="DetailDot" Width="10" Height="10" Fill="{StaticResource TextMuted}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="DetailName" Text="No device selected" FontSize="20" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimary}" />
                             </StackPanel>
                             <Button x:Name="OpenInIngestionButton" Style="{StaticResource LinkButton}" FontSize="13.5" HorizontalAlignment="Right"
-                                    Click="OnOpenInIngestionClick" IsEnabled="False"
+                                    VerticalAlignment="Center" Click="OnOpenInIngestionClick" IsEnabled="False"
                                     ToolTip="Open this device in the Sensor Data Ingestion pillar (readings, attachments, batches)">
                                 <TextBlock Text="Open in Ingestion ↗" />
                             </Button>
                         </Grid>
                         <TextBlock x:Name="DetailId" DockPanel.Dock="Top" FontFamily="{StaticResource MonoFont}" FontSize="12"
-                                   Foreground="{StaticResource TextSecondary}" Margin="21,6,0,0" TextTrimming="CharacterEllipsis" />
+                                   Foreground="{StaticResource TextSecondary}" Margin="0,8,0,0" TextTrimming="CharacterEllipsis" />
 
-                        <Grid DockPanel.Dock="Top" Margin="0,14,0,10">
+                        <Grid DockPanel.Dock="Top" Margin="0,14,0,12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <StackPanel VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock x:Name="DetailValue" Text="—" FontFamily="{StaticResource MonoFont}" FontSize="46"
-                                               FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
-                                    <TextBlock x:Name="DetailUnit" FontFamily="{StaticResource MonoFont}" FontSize="18"
-                                               Foreground="{StaticResource TextSecondary}" VerticalAlignment="Bottom" Margin="5,0,0,9" />
+                            <!-- Latest value, then its state as a coloured pill -->
+                            <WrapPanel VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,18,0">
+                                    <TextBlock x:Name="DetailValue" Text="—" FontSize="42" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimary}" />
+                                    <TextBlock x:Name="DetailUnit" FontSize="17" Foreground="{StaticResource TextSecondary}"
+                                               VerticalAlignment="Bottom" Margin="4,0,0,9" />
                                 </StackPanel>
-                                <TextBlock x:Name="DetailState" FontSize="13.5" Foreground="{StaticResource TextSecondary}"
-                                           TextWrapping="Wrap" Margin="0,0,0,0" MaxWidth="420" HorizontalAlignment="Left" />
-                            </StackPanel>
+                                <Border x:Name="DetailStatePill" CornerRadius="6" Padding="10,5" VerticalAlignment="Center"
+                                        Background="{StaticResource NeutralSoft}" Visibility="Collapsed">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="DetailStateIcon" Text="&#xE946;" Style="{StaticResource Icon}" FontSize="12.5"
+                                                   Foreground="{StaticResource TextSecondary}" Margin="0,0,8,0" />
+                                        <TextBlock x:Name="DetailState" FontSize="13.5" FontWeight="SemiBold" MaxWidth="380"
+                                                   Foreground="{StaticResource TextSecondary}" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                                    </StackPanel>
+                                </Border>
+                            </WrapPanel>
 
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                                 <Border Style="{StaticResource SegmentHost}">
@@ -526,7 +707,7 @@
 
                 <!-- Manual override with the stack-based undo history -->
                 <Border Grid.Row="2" Style="{StaticResource StreamCard}">
-                    <StackPanel Margin="24,20,24,20">
+                    <StackPanel Margin="26,20,26,20">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -536,15 +717,17 @@
                             <StackPanel>
                                 <TextBlock Text="Manual override" Style="{StaticResource CardTitle}" HorizontalAlignment="Left" />
                                 <TextBlock x:Name="OverrideTarget" Text="Select a pump, valve or relay to command it."
-                                           Style="{StaticResource MutedText}" FontSize="13.5" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                           FontSize="13" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" Margin="0,6,0,0" />
                             </StackPanel>
 
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
-                                <Button x:Name="UndoButton" Style="{StaticResource SmallButton}" Click="OnUndoClick" IsEnabled="False"
-                                        ToolTipService.ShowOnDisabled="True" ToolTip="Nothing to undo">
-                                    <TextBlock Text="↶  Undo" />
-                                </Button>
-                            </StackPanel>
+                            <Button x:Name="UndoButton" Grid.Column="1" Style="{StaticResource SmallButton}" Click="OnUndoClick" IsEnabled="False"
+                                    VerticalAlignment="Top" Margin="12,0,0,0"
+                                    ToolTipService.ShowOnDisabled="True" ToolTip="Nothing to undo">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE7A7;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                    <TextBlock Text="Undo" />
+                                </StackPanel>
+                            </Button>
                         </Grid>
 
                         <!-- This device's commands, then the group commands; they wrap onto two lines when narrow -->
@@ -557,7 +740,7 @@
                             </StackPanel>
 
                             <StackPanel Margin="0,0,0,8">
-                                <TextBlock Text="GROUP COMMANDS" Style="{StaticResource EyebrowSmall}" HorizontalAlignment="Center" Margin="0,0,0,9" />
+                                <TextBlock Text="GROUP COMMANDS" Style="{StaticResource EyebrowSmall}" Margin="0,0,0,9" />
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="Shut down all valves" Style="{StaticResource CommandButton}" Tag="AllValves|TurnOff"
                                             Click="OnGroupCommandClick" />
@@ -566,11 +749,7 @@
                                     <Button Style="{StaticResource DangerButton}" Tag="AllActuators|TurnOff" Click="OnGroupCommandClick" Margin="10,0,0,0"
                                             ToolTip="Switch every pump, valve and relay OFF - one undo restores them all.">
                                         <StackPanel Orientation="Horizontal">
-                                            <Grid Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,9,0">
-                                                <Ellipse Stroke="White" StrokeThickness="1.4" />
-                                                <Path Data="M 7.5 4 L 7.5 8.5 M 7.5 11 L 7.5 11.2" Stroke="White" StrokeThickness="1.6"
-                                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
-                                            </Grid>
+                                            <TextBlock Text="&#xE783;" Style="{StaticResource Icon}" FontSize="14" Margin="0,0,9,0" />
                                             <TextBlock Text="Emergency stop" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
@@ -578,14 +757,16 @@
                             </StackPanel>
                         </WrapPanel>
 
-                        <Border Height="1" Background="{StaticResource CardBorder}" Margin="0,12,0,16" />
+                        <Border Height="1" Background="{StaticResource CardBorder}" Margin="0,12,0,14" />
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <WrapPanel Margin="0,0,0,8">
                             <TextBlock Text="UNDO STACK" Style="{StaticResource EyebrowSmall}" VerticalAlignment="Center" />
                             <TextBlock x:Name="UndoCountText" Text="(0)" FontSize="10.5" FontWeight="SemiBold"
                                        Foreground="{StaticResource TextSecondary}" FontFamily="{StaticResource MonoFont}"
-                                       Margin="5,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
+                                       Margin="5,0,14,0" VerticalAlignment="Center" />
+                            <TextBlock x:Name="UndoEmptyText" Text="No commands yet. Everything you send here can be undone."
+                                       FontSize="13" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
+                        </WrapPanel>
 
                         <ScrollViewer MaxHeight="112" VerticalScrollBarVisibility="Auto">
                             <ItemsControl x:Name="UndoStackList">
@@ -613,8 +794,6 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
-                        <TextBlock x:Name="UndoEmptyText" Text="No commands yet - everything you send here can be undone."
-                                   FontSize="13" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
             </Grid>
@@ -628,47 +807,52 @@
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" Style="{StaticResource StreamCard}">
-                    <DockPanel Margin="20,18,16,12">
-                        <StackPanel DockPanel.Dock="Top" Margin="0,0,4,14">
-                            <Grid>
-                                <TextBlock Text="Suggested Actions" Style="{StaticResource CardTitle}" />
-                                <Border Background="{StaticResource InsightSoft}" BorderBrush="{StaticResource InsightBorder}" BorderThickness="1"
-                                        CornerRadius="4" Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                    <TextBlock Text="AUTOMATED INSIGHTS" Style="{StaticResource TagText}" Foreground="{StaticResource InsightText}" />
-                                </Border>
-                            </Grid>
-                            <TextBlock x:Name="InsightsSubtitle" FontSize="12.5" Foreground="{StaticResource TextSecondary}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                    <DockPanel Margin="22,20,14,14">
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,8,14">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Suggested actions" Style="{StaticResource CardTitle}" />
+                                <TextBlock x:Name="InsightsCountText" Style="{StaticResource CardCount}" />
+                            </StackPanel>
+                            <TextBlock x:Name="InsightsSubtitle" FontSize="12.5" Foreground="{StaticResource TextSecondary}"
+                                       Margin="0,8,0,0" TextWrapping="Wrap" LineHeight="19" />
                         </StackPanel>
 
-                        <Expander DockPanel.Dock="Bottom" Margin="0,8,4,0" FontSize="12" Foreground="{StaticResource TextSecondary}">
-                            <Expander.Header>
-                                <TextBlock Text="Learned patterns (condition → operator response)" FontSize="12.5" Foreground="{StaticResource TextSecondary}" />
-                            </Expander.Header>
-                            <ItemsControl x:Name="PatternList" Margin="0,8,0,0">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,0,0,7">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Condition}" FontSize="11.5" Foreground="{StaticResource TextSecondary}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock FontSize="12" Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis">
-                                                    <Run Text="→ " /><Run Text="{Binding Response, Mode=OneWay}" FontWeight="SemiBold" />
-                                                </TextBlock>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
-                                                <Border Width="60" Height="4" CornerRadius="2" Background="{StaticResource InsightBarTrack}" HorizontalAlignment="Right">
-                                                    <Border Width="{Binding BarWidth}" CornerRadius="2" Background="{StaticResource InsightBar}" HorizontalAlignment="Left" />
-                                                </Border>
-                                                <TextBlock Text="{Binding Support}" FontSize="10.5" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Right" Margin="0,2,0,0" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </Expander>
+                        <!-- Learned patterns: folded away under the suggestions -->
+                        <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource CardBorder}" BorderThickness="0,1,0,0"
+                                Margin="0,6,8,0" Padding="0,14,0,0">
+                            <Expander Style="{StaticResource PatternExpander}">
+                                <Expander.Header>
+                                    <TextBlock FontSize="13">
+                                        <Run Text="Learned patterns" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
+                                        <Run Text="  (condition → response)" FontSize="12" Foreground="{StaticResource TextSecondary}" />
+                                    </TextBlock>
+                                </Expander.Header>
+                                <ItemsControl x:Name="PatternList" Margin="0,12,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Condition}" FontSize="11.5" Foreground="{StaticResource TextSecondary}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock FontSize="12" Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis">
+                                                        <Run Text="→ " /><Run Text="{Binding Response, Mode=OneWay}" FontWeight="SemiBold" />
+                                                    </TextBlock>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                    <Border Width="60" Height="4" CornerRadius="2" Background="{StaticResource AccentBlueSoft}" HorizontalAlignment="Right">
+                                                        <Border Width="{Binding BarWidth}" CornerRadius="2" Background="{StaticResource AccentBlue}" HorizontalAlignment="Left" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Support}" FontSize="10.5" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Right" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Expander>
+                        </Border>
 
                         <Grid>
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -676,36 +860,45 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Background="{Binding CardBackground}" BorderBrush="{Binding CardBorder}" BorderThickness="1"
-                                                    CornerRadius="10" Margin="0,0,4,10" Padding="16,14">
-                                                <StackPanel>
-                                                    <Grid>
-                                                        <TextBlock Text="{Binding KindLabel}" Style="{StaticResource TagText}" FontSize="10.5"
-                                                                   Foreground="{Binding AccentText}" VerticalAlignment="Center" />
-                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" ToolTip="Engine confidence">
-                                                            <Border Width="68" Height="4" CornerRadius="2" Background="{Binding AccentTrack}" VerticalAlignment="Center">
-                                                                <Border Width="{Binding ConfidenceBarWidth}" CornerRadius="2" Background="{Binding AccentBar}" HorizontalAlignment="Left" />
-                                                            </Border>
-                                                            <TextBlock Text="{Binding ConfidenceText}" FontSize="11" Foreground="{Binding AccentText}"
-                                                                       FontFamily="{StaticResource MonoFont}" Margin="8,0,0,0" />
+                                                    CornerRadius="10" Margin="0,0,8,12">
+                                                <Grid>
+                                                    <!-- Red edge on suggestions answering a critical alert -->
+                                                    <Border Width="3" HorizontalAlignment="Left" CornerRadius="10,0,0,10" Margin="-1"
+                                                            Background="{StaticResource StatusRed}"
+                                                            Visibility="{Binding IsCritical, Converter={StaticResource BoolToVisibility}}" />
+
+                                                    <StackPanel Margin="18,15,16,16">
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,9"
+                                                                    Visibility="{Binding IsCritical, Converter={StaticResource BoolToVisibility}}">
+                                                            <TextBlock Text="&#xE783;" Style="{StaticResource Icon}" FontSize="12" Foreground="{StaticResource StatusRed}" Margin="0,0,7,0" />
+                                                            <TextBlock Text="Responds to critical alert" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource StatusRedText}" />
                                                         </StackPanel>
-                                                    </Grid>
-                                                    <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"
-                                                               TextWrapping="Wrap" Margin="0,9,0,6" />
-                                                    <TextBlock Text="{Binding Detail}" FontSize="12.5" Foreground="#4B5563" TextWrapping="Wrap" />
-                                                    <TextBlock Text="{Binding Evidence}" FontSize="11.5" Foreground="{StaticResource TextSecondary}" FontStyle="Italic"
-                                                               TextWrapping="Wrap" Margin="0,8,0,0" />
-                                                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                                                        <Button Style="{StaticResource SmallPrimaryButton}" Click="OnRunInsightClick"
-                                                                Visibility="{Binding HasCommand, Converter={StaticResource BoolToVisibility}}"
-                                                                ToolTip="{Binding Command.Label}" Margin="0,0,8,0">
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <Path Data="M 0 0 L 7 4.5 L 0 9 Z" Fill="White" Width="7" Height="9" VerticalAlignment="Center" Margin="0,0,9,0" />
-                                                                <TextBlock Text="Run" />
-                                                            </StackPanel>
-                                                        </Button>
-                                                        <Button Content="Show device" Style="{StaticResource SmallButton}" Click="OnFocusInsightClick" />
+
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="✦ " FontSize="12" Foreground="{StaticResource AccentBlue}" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding KindName}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AccentBlue}" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding KindLine}" FontSize="12" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
+                                                            <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="11" Foreground="{StaticResource TextMuted}"
+                                                                       Margin="7,0,0,0" Cursor="Help" ToolTip="{Binding Evidence}" />
+                                                        </StackPanel>
+
+                                                        <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"
+                                                                   TextWrapping="Wrap" Margin="0,8,0,5" />
+                                                        <TextBlock Text="{Binding Detail}" FontSize="12.5" Foreground="#4B5563" TextWrapping="Wrap" LineHeight="19" />
+
+                                                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                                            <Button Style="{StaticResource SmallPrimaryButton}" Click="OnRunInsightClick"
+                                                                    Visibility="{Binding HasCommand, Converter={StaticResource BoolToVisibility}}"
+                                                                    ToolTip="{Binding Command.Label}" Margin="0,0,8,0">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <Path Data="M 0 0 L 7 4.5 L 0 9 Z" Fill="White" Width="7" Height="9" VerticalAlignment="Center" Margin="0,0,9,0" />
+                                                                    <TextBlock Text="Run" />
+                                                                </StackPanel>
+                                                            </Button>
+                                                            <Button Content="Show device" Style="{StaticResource SmallButton}" Click="OnFocusInsightClick" />
+                                                        </StackPanel>
                                                     </StackPanel>
-                                                </StackPanel>
+                                                </Grid>
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -713,19 +906,19 @@
                             </ScrollViewer>
 
                             <StackPanel x:Name="InsightsEmpty" VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="Collapsed">
-                                <TextBlock Text="✓" FontSize="20" Foreground="{StaticResource StatusGreen}" HorizontalAlignment="Center" />
-                                <TextBlock Text="Nothing needs attention right now." Style="{StaticResource MutedText}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="18" Foreground="{StaticResource StatusGreen}" HorizontalAlignment="Center" />
+                                <TextBlock Text="Nothing needs attention right now." Style="{StaticResource MutedText}" HorizontalAlignment="Center" Margin="0,6,0,0" />
                             </StackPanel>
                         </Grid>
                     </DockPanel>
                 </Border>
 
                 <Border Grid.Row="2" Style="{StaticResource StreamCard}">
-                    <DockPanel Margin="20,18,10,6">
-                        <Grid DockPanel.Dock="Top" Margin="0,0,10,4">
-                            <TextBlock Text="Live command stream" Style="{StaticResource CardTitle}" />
-                            <TextBlock x:Name="EventCountText" Style="{StaticResource MutedText}" FontSize="12" HorizontalAlignment="Right" />
-                        </Grid>
+                    <DockPanel Margin="22,20,8,4">
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,14,6">
+                            <TextBlock Text="Command stream" Style="{StaticResource CardTitle}" />
+                            <TextBlock x:Name="EventCountText" Style="{StaticResource CardCount}" />
+                        </StackPanel>
 
                         <ListBox x:Name="EventList" BorderThickness="0" Background="Transparent"
                                  ItemContainerStyle="{StaticResource PlainListItem}"
@@ -733,41 +926,38 @@
                                  VirtualizingPanel.ScrollUnit="Pixel">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="0,0,0,1" Padding="0,12" Margin="0,0,6,0">
+                                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="0,0,0,1" Padding="0,13" Margin="0,0,10,0">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="42" />
+                                                <ColumnDefinition Width="30" />
                                                 <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
-                                            <Grid Width="28" Height="28" HorizontalAlignment="Left" VerticalAlignment="Top">
-                                                <Ellipse Fill="{Binding BadgeBrush}" />
-                                                <TextBlock Text="{Binding Glyph}" Foreground="{Binding Brush}" FontSize="12.5" FontWeight="Bold"
-                                                           FontFamily="Segoe UI Symbol" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Grid>
+                                            <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="14.5" Foreground="{Binding Brush}"
+                                                       VerticalAlignment="Top" Margin="0,1,0,0" />
 
                                             <StackPanel Grid.Column="1">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" TextWrapping="Wrap" />
-                                                    <TextBlock Grid.Column="1" Text="{Binding TimeText}" FontFamily="{StaticResource MonoFont}" FontSize="11.5"
-                                                               Foreground="{StaticResource TextSecondary}" Margin="10,1,0,0" />
-                                                </Grid>
-                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,2"
-                                                            Visibility="{Binding ViaPriorityLane, Converter={StaticResource BoolToVisibility}}">
-                                                    <Border Background="{StaticResource StatusRedSoft}" CornerRadius="3" Padding="6,1" VerticalAlignment="Center">
-                                                        <TextBlock Text="PRIORITY LANE" Style="{StaticResource TagText}" Foreground="{StaticResource StatusRed}" />
-                                                    </Border>
-                                                    <TextBlock Text="{Binding PriorityText}" FontFamily="{StaticResource MonoFont}" FontSize="11"
-                                                               Foreground="{StaticResource StatusRed}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                                                </StackPanel>
-                                                <TextBlock Text="{Binding Detail}" FontSize="12.5" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                                <TextBlock x:Name="EventTitle" Text="{Binding Title}" FontSize="13.5" Foreground="#374151" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Detail}" Style="{StaticResource CollapsibleText}" FontSize="12.5"
+                                                           Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                                <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="11.5" Foreground="{StaticResource TextSecondary}"
+                                                           Margin="0,5,0,0" TextWrapping="Wrap"
+                                                           Visibility="{Binding ViaPriorityLane, Converter={StaticResource BoolToVisibility}}">
+                                                    <Run Text="Priority lane · " /><Run Text="{Binding PriorityText, Mode=OneWay}" />
+                                                </TextBlock>
                                             </StackPanel>
+
+                                            <TextBlock Grid.Column="2" Text="{Binding TimeText}" FontFamily="{StaticResource MonoFont}" FontSize="11.5"
+                                                       Foreground="{StaticResource TextSecondary}" Margin="12,2,0,0" VerticalAlignment="Top" />
                                         </Grid>
                                     </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Emphasis}" Value="True">
+                                            <Setter TargetName="EventTitle" Property="FontWeight" Value="SemiBold" />
+                                            <Setter TargetName="EventTitle" Property="Foreground" Value="{StaticResource TextPrimary}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>

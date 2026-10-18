@@ -52,6 +52,8 @@ namespace SmartX.Client.ViewModels
         private string _statusLabel = string.Empty;
         private Brush _statusBrush = Brushes.Gray;
         private Brush _statusSoftBrush = Brushes.WhiteSmoke;
+        private Brush _valueBrush = Brushes.Black;
+        private bool _isCritical;
         private string? _alertReason;
         private string _lastSeenText = string.Empty;
         private bool _highlighted;
@@ -78,6 +80,8 @@ namespace SmartX.Client.ViewModels
         public string StatusLabel { get => _statusLabel; private set => Set(ref _statusLabel, value); }
         public Brush StatusBrush { get => _statusBrush; private set => Set(ref _statusBrush, value); }
         public Brush StatusSoftBrush { get => _statusSoftBrush; private set => Set(ref _statusSoftBrush, value); }
+        public Brush ValueBrush { get => _valueBrush; private set => Set(ref _valueBrush, value); }
+        public bool IsCritical { get => _isCritical; private set => Set(ref _isCritical, value); }
         public string? AlertReason { get => _alertReason; private set => Set(ref _alertReason, value); }
         public string LastSeenText { get => _lastSeenText; private set => Set(ref _lastSeenText, value); }
         public bool Highlighted { get => _highlighted; private set => Set(ref _highlighted, value); }
@@ -93,6 +97,15 @@ namespace SmartX.Client.ViewModels
             ValueText = dto.LastValue is null ? "—" : $"{dto.LastValue}{(dto.Unit.Length > 0 ? " " + dto.Unit : string.Empty)}";
             StatusBrush = Palette.ForAlertState(dto.AlertState);
             StatusSoftBrush = Palette.SoftForAlertState(dto.AlertState);
+            IsCritical = dto.AlertState == DeviceAlertState.Critical;
+
+            // The reading itself turns red or amber while the device is in alert.
+            ValueBrush = Palette.Get(dto.AlertState switch
+            {
+                DeviceAlertState.Critical => "StatusRed",
+                DeviceAlertState.Warning => "StatusAmber",
+                _ => "TextPrimary"
+            });
             StatusLabel = dto.AlertState switch
             {
                 DeviceAlertState.AwaitingData => "WAITING",
@@ -151,7 +164,7 @@ namespace SmartX.Client.ViewModels
         public string Evidence { get => _evidence; private set => Set(ref _evidence, value); }
         public Brush SeverityBrush { get => _severityBrush; private set => Set(ref _severityBrush, value); }
 
-        // Critical suggestions are tinted red; everything else uses the amber of automated insights.
+        // Critical suggestions get a red edge and heading; everything else is a plain white card with blue accents.
         public bool IsCritical
         {
             get => _critical;
@@ -168,9 +181,9 @@ namespace SmartX.Client.ViewModels
             }
         }
 
-        public Brush CardBackground => Palette.Get(IsCritical ? "StatusRedSoft" : "InsightCardBackground");
-        public Brush CardBorder => Palette.Get(IsCritical ? "StatusRedBorder" : "InsightBorder");
-        public Brush AccentText => Palette.Get(IsCritical ? "StatusRedText" : "InsightText");
+        public Brush CardBackground => Palette.Get("CardBackground");
+        public Brush CardBorder => Palette.Get(IsCritical ? "StatusRedBorder" : "CardBorder");
+        public Brush AccentText => Palette.Get(IsCritical ? "StatusRedText" : "AccentBlue");
         public Brush AccentBar => Palette.Get(IsCritical ? "StatusRed" : "InsightBar");
         public Brush AccentTrack => Palette.Get(IsCritical ? "StatusRedBorder" : "InsightBarTrack");
 
@@ -183,6 +196,7 @@ namespace SmartX.Client.ViewModels
                 {
                     Raise(nameof(ConfidenceText));
                     Raise(nameof(ConfidenceBarWidth));
+                    Raise(nameof(KindLine));
                 }
             }
         }
@@ -210,6 +224,17 @@ namespace SmartX.Client.ViewModels
             _ => "FORECAST"
         };
 
+        // Sentence-case kind for the card's "✦ Learned · 83% confidence" line.
+        public string KindName => Kind switch
+        {
+            InsightKind.LearnedResponse => "Learned",
+            InsightKind.NextActionPrediction => "Sequence",
+            InsightKind.ZoneRule => "Zone rule",
+            _ => "Forecast"
+        };
+
+        public string KindLine => $" · {ConfidenceText} confidence";
+
 
         public void Update(InsightDto dto)
         {
@@ -223,6 +248,7 @@ namespace SmartX.Client.ViewModels
             IsCritical = dto.Severity == AlertSeverity.Critical;
             Command = dto.Command;
             Raise(nameof(KindLabel));
+            Raise(nameof(KindName));
         }
         //----------------------------------------------------------//
 
@@ -248,6 +274,7 @@ namespace SmartX.Client.ViewModels
         Brush Brush,
         Brush BadgeBrush,
         string Glyph,
+        bool Emphasis,
         bool ViaPriorityLane,
         string? PriorityText,
         string? DeviceId)
@@ -282,19 +309,24 @@ namespace SmartX.Client.ViewModels
             dto.Detail,
             brush,
             badge,
+            // Segoe Fluent Icons / MDL2 Assets code points, drawn with the IconFont resource.
             dto.Kind switch
             {
-                StreamEventKind.AlertRaised or StreamEventKind.AlertEscalated => "⚠",
-                StreamEventKind.AlertEased => "▼",
-                StreamEventKind.AlertCleared => "✓",
-                StreamEventKind.DeviceOffline => "○",
-                StreamEventKind.DeviceReconnected => "●",
-                StreamEventKind.CommandIssued => "▶",
-                StreamEventKind.CommandUndone => "↶",
-                StreamEventKind.CommandAcknowledged => "✓",
-                StreamEventKind.LoadTest => "≋",
-                _ => "•"
+                StreamEventKind.AlertRaised or StreamEventKind.AlertEscalated =>
+                    dto.Severity == AlertSeverity.Critical ? "" : "",   // error badge / warning triangle
+                StreamEventKind.AlertEased => "",                              // down arrow
+                StreamEventKind.AlertCleared => "",                            // check mark
+                StreamEventKind.DeviceOffline => "",                           // cross
+                StreamEventKind.DeviceReconnected => "",
+                StreamEventKind.CommandIssued => "",                           // play
+                StreamEventKind.CommandUndone => "",                           // undo
+                StreamEventKind.CommandAcknowledged => "",
+                StreamEventKind.LoadTest => "",                                // lightning bolt
+                _ => ""                                                        // info
             },
+            // Things that need the operator's eye get a bold title; "back to normal" style events stay regular.
+            dto.Kind is StreamEventKind.AlertRaised or StreamEventKind.AlertEscalated
+                or StreamEventKind.DeviceOffline or StreamEventKind.LoadTest,
             dto.ViaPriorityLane,
             dto.ViaPriorityLane
                 ? $"{FormatLatency(dto.LatencyMs)} · jumped {dto.Bypassed ?? 0} queued"

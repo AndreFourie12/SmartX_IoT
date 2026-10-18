@@ -12,6 +12,8 @@ namespace SmartX.Client.Controls
     ///
     /// The points arrive already in timestamp order - the API reads them out of a SortedDictionary - so
     /// this only has to map each one to a pixel and draw a single path. No sorting, no per-point elements.
+    /// Readings that land within a few pixels of each other are averaged into one point, so dense bursts
+    /// stay readable instead of turning into vertical zigzags.
     /// </summary>
     public sealed class TimelineChart : FrameworkElement
     {
@@ -28,16 +30,17 @@ namespace SmartX.Client.Controls
         private static readonly Brush AxisText = Frozen(Color.FromRgb(0x6B, 0x72, 0x80));
         private static readonly Brush GridBrush = Frozen(Color.FromRgb(0xEE, 0xF1, 0xF5));
         private static readonly Brush LineBrush = Frozen(Color.FromRgb(0x25, 0x63, 0xEB));
-        private static readonly Brush WarningFill = Frozen(Color.FromArgb(0x22, 0xF5, 0x9E, 0x0B));
-        private static readonly Brush CriticalFill = Frozen(Color.FromArgb(0x22, 0xDC, 0x26, 0x26));
-        private static readonly Brush WarningLine = Frozen(Color.FromRgb(0xF5, 0x9E, 0x0B));
+        private static readonly Brush CriticalFill = Frozen(Color.FromArgb(0x14, 0xDC, 0x26, 0x26));
         private static readonly Brush CriticalLine = Frozen(Color.FromRgb(0xDC, 0x26, 0x26));
+        private static readonly Brush WarningText = Frozen(Color.FromRgb(0xB4, 0x53, 0x09));
         private static readonly Typeface LabelFace = new("Cascadia Mono, Consolas, Courier New");
 
-        private const double PlotLeft = 50;
         private const double PlotRight = 12;
         private const double PlotTop = 10;
         private const double PlotBottom = 24;
+
+        // Smallest on-screen width of a time slot. Readings in the same slot are merged into one point.
+        private const double SlotPixels = 6;
 
 
         protected override void OnRender(DrawingContext drawing)
@@ -46,7 +49,6 @@ namespace SmartX.Client.Controls
             drawing.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, width, height));
 
             var timeline = Timeline;
-            var plot = new Rect(PlotLeft, PlotTop, Math.Max(1, width - PlotLeft - PlotRight), Math.Max(1, height - PlotTop - PlotBottom));
 
             if (timeline is null || timeline.Points.Count == 0)
             {
@@ -57,6 +59,11 @@ namespace SmartX.Client.Controls
 
             bool onOff = timeline.Category.IsActuator();
             var (min, max) = onOff ? (-0.15, 1.15) : ValueRange(timeline);
+            var labels = AxisLabels(min, max, onOff, AxisSuffix(timeline.Unit));
+
+            // The plot starts just right of the widest axis label, so "28.6%" is never cut off.
+            double plotLeft = Math.Max(36, labels.Max(label => Format(label.Text, 10.5, AxisText).Width) + 14);
+            var plot = new Rect(plotLeft, PlotTop, Math.Max(1, width - plotLeft - PlotRight), Math.Max(1, height - PlotTop - PlotBottom));
 
             double fromTicks = timeline.FromUtc.UtcTicks, toTicks = timeline.ToUtc.UtcTicks;
             double X(DateTimeOffset t) => plot.Left + (t.UtcTicks - fromTicks) / Math.Max(1, toTicks - fromTicks) * plot.Width;
@@ -65,9 +72,9 @@ namespace SmartX.Client.Controls
             drawing.PushClip(new RectangleGeometry(new Rect(0, 0, width, height)));
 
             if (!onOff && timeline.Band is { } band)
-                DrawBands(drawing, band, plot, min, max, Y);
+                DrawBands(drawing, band, plot, min, max, AxisSuffix(timeline.Unit), Y);
 
-            DrawGrid(drawing, plot, min, max, onOff, Y);
+            DrawGrid(drawing, plot, labels, Y);
             DrawTimeAxis(drawing, timeline, plot);
             DrawSeries(drawing, timeline, plot, onOff, X, Y);
 
@@ -103,7 +110,7 @@ namespace SmartX.Client.Controls
         //----------------------------------------------------------//
 
 
-        private void DrawBands(DrawingContext drawing, Shared.Streaming.ThresholdBand band, Rect plot, double min, double max, Func<double, double> y)
+        private void DrawBands(DrawingContext drawing, Shared.Streaming.ThresholdBand band, Rect plot, double min, double max, string suffix, Func<double, double> y)
         {
             void Shade(double from, double to, Brush fill)
             {
@@ -113,56 +120,58 @@ namespace SmartX.Client.Controls
                     drawing.DrawRectangle(fill, null, new Rect(plot.Left, top, plot.Width, bottom - top));
             }
 
-            void Line(double? value, Brush brush)
+            // Dotted threshold line, named on the left: "Warning · 30%".
+            void Line(double? value, string name, Brush brush)
             {
                 if (value is not { } v || v < min || v > max)
                     return;
 
-                var pen = new Pen(brush, 1) { DashStyle = DashStyles.Dash };
+                var pen = new Pen(brush, 1) { DashStyle = DashStyles.Dot };
                 pen.Freeze();
                 drawing.DrawLine(pen, new Point(plot.Left, y(v)), new Point(plot.Right, y(v)));
-                DrawText(drawing, v.ToString("0.#", CultureInfo.InvariantCulture), new Point(plot.Right - 2, y(v) - 15), 10, brush, rightAligned: true);
+                DrawText(drawing, $"{name} · {v.ToString("0.#", CultureInfo.InvariantCulture)}{suffix}", new Point(plot.Left + 8, y(v) - 16), 10.5, brush);
             }
 
-            if (band.WarningLow is { } warnLow)
-                Shade(band.CriticalLow ?? min, warnLow, WarningFill);
             if (band.CriticalLow is { } critLow)
                 Shade(min, critLow, CriticalFill);
-            if (band.WarningHigh is { } warnHigh)
-                Shade(warnHigh, band.CriticalHigh ?? max, WarningFill);
             if (band.CriticalHigh is { } critHigh)
                 Shade(critHigh, max, CriticalFill);
 
-            Line(band.WarningLow, WarningLine);
-            Line(band.CriticalLow, CriticalLine);
-            Line(band.WarningHigh, WarningLine);
-            Line(band.CriticalHigh, CriticalLine);
+            Line(band.WarningLow, "Warning", WarningText);
+            Line(band.CriticalLow, "Critical", CriticalLine);
+            Line(band.WarningHigh, "Warning", WarningText);
+            Line(band.CriticalHigh, "Critical", CriticalLine);
         }
         //----------------------------------------------------------//
 
 
-        private void DrawGrid(DrawingContext drawing, Rect plot, double min, double max, bool onOff, Func<double, double> y)
+        /// <summary>
+        /// The y-axis gridlines and their labels: OFF/ON for actuators, otherwise five evenly spaced values.
+        /// </summary>
+        private static List<(double Value, string Text)> AxisLabels(double min, double max, bool onOff, string suffix)
+        {
+            if (onOff)
+                return [(0.0, "OFF"), (1.0, "ON")];
+
+            string format = Math.Abs(max - min) < 10 ? "0.0" : "0";
+
+            return Enumerable.Range(0, 5)
+                .Select(i => min + (max - min) * i / 4)
+                .Select(value => (value, value.ToString(format, CultureInfo.InvariantCulture) + suffix))
+                .ToList();
+        }
+        //----------------------------------------------------------//
+
+
+        private void DrawGrid(DrawingContext drawing, Rect plot, List<(double Value, string Text)> labels, Func<double, double> y)
         {
             var gridPen = new Pen(GridBrush, 1);
             gridPen.Freeze();
 
-            if (onOff)
+            foreach (var (value, text) in labels)
             {
-                foreach (var (value, label) in new[] { (0.0, "OFF"), (1.0, "ON") })
-                {
-                    drawing.DrawLine(gridPen, new Point(plot.Left, y(value)), new Point(plot.Right, y(value)));
-                    DrawText(drawing, label, new Point(plot.Left - 6, y(value) - 7), 10.5, AxisText, rightAligned: true);
-                }
-
-                return;
-            }
-
-            for (int i = 0; i <= 4; i++)
-            {
-                double value = min + (max - min) * i / 4;
                 drawing.DrawLine(gridPen, new Point(plot.Left, y(value)), new Point(plot.Right, y(value)));
-                DrawText(drawing, value.ToString(Math.Abs(max - min) < 10 ? "0.0" : "0", CultureInfo.InvariantCulture),
-                    new Point(plot.Left - 6, y(value) - 7), 10.5, AxisText, rightAligned: true);
+                DrawText(drawing, text, new Point(plot.Left - 8, y(value) - 7), 10.5, AxisText, rightAligned: true);
             }
         }
         //----------------------------------------------------------//
@@ -170,13 +179,88 @@ namespace SmartX.Client.Controls
 
         private void DrawTimeAxis(DrawingContext drawing, TimelineDto timeline, Rect plot)
         {
-            for (int i = 0; i <= 4; i++)
+            // Seconds only matter on short windows; longer ones read better as plain clock times.
+            string format = timeline.ToUtc - timeline.FromUtc <= TimeSpan.FromMinutes(2) ? "HH:mm:ss" : "HH:mm";
+
+            for (int i = 1; i <= 5; i++)
             {
-                var at = timeline.FromUtc + (timeline.ToUtc - timeline.FromUtc) * (i / 4.0);
-                double x = plot.Left + plot.Width * i / 4;
-                DrawText(drawing, at.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture),
-                    new Point(x, plot.Bottom + 5), 10, AxisText, centred: i is > 0 and < 4, rightAligned: i == 4);
+                var at = timeline.FromUtc + (timeline.ToUtc - timeline.FromUtc) * ((i - 0.5) / 5);
+                double x = plot.Left + plot.Width * (i - 0.5) / 5;
+                DrawText(drawing, at.ToLocalTime().ToString(format, CultureInfo.InvariantCulture),
+                    new Point(x, plot.Bottom + 7), 10.5, AxisText, centred: true);
             }
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// One few-pixel-wide slice of the time axis and the readings that fell into it.
+        /// </summary>
+        private sealed class Slot
+        {
+            public int Count;
+            public double Sum, Last, SumX;
+
+            public double Mean => Sum / Count;
+            public double X => SumX / Count;
+
+            public void Add(double x, double value)
+            {
+                Count++;
+                Sum += value;
+                SumX += x;
+                Last = value;
+            }
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Groups the readings into slots a few pixels wide. A burst of readings - a backfilled batch, a
+        /// reconnect flush, several packets with the same timestamp - would otherwise be drawn as a stack of
+        /// vertical zigzags in one column; per slot it becomes a single averaged point.
+        ///
+        /// Slots are fixed stretches of clock time (every 2 s, say), not fixed pixels. The window slides
+        /// forward every second, and slots measured from its left edge would regroup the same old readings
+        /// on every refresh, making the line twitch; clock-aligned slots always group them the same way.
+        /// </summary>
+        private static List<Slot> BuildSlots(IReadOnlyList<TimelinePointDto> points, TimelineDto timeline, Rect plot, Func<DateTimeOffset, double> x)
+        {
+            long slotTicks = SlotLength((timeline.ToUtc - timeline.FromUtc) * (SlotPixels / plot.Width)).Ticks;
+            var slots = new List<Slot>();
+            long currentKey = long.MinValue;
+
+            // The points are already in timestamp order, so each slot is one contiguous run.
+            foreach (var point in points)
+            {
+                long key = point.TimestampUtc.UtcTicks / slotTicks;
+                if (key != currentKey)
+                {
+                    slots.Add(new Slot());
+                    currentKey = key;
+                }
+
+                slots[^1].Add(x(point.TimestampUtc), point.Value);
+            }
+
+            return slots;
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Rounds the ideal slot length up to a tidy one, so small changes in the chart's width don't regroup
+        /// the readings either.
+        /// </summary>
+        private static TimeSpan SlotLength(TimeSpan ideal)
+        {
+            foreach (double seconds in new[] { 0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300 })
+            {
+                if (ideal <= TimeSpan.FromSeconds(seconds))
+                    return TimeSpan.FromSeconds(seconds);
+            }
+
+            return TimeSpan.FromMinutes(10);
         }
         //----------------------------------------------------------//
 
@@ -184,74 +268,52 @@ namespace SmartX.Client.Controls
         private void DrawSeries(DrawingContext drawing, TimelineDto timeline, Rect plot, bool onOff, Func<DateTimeOffset, double> x, Func<double, double> y)
         {
             var points = timeline.Points;
+            var slots = BuildSlots(points, timeline, plot, x);
+
+            // The line ends exactly on the latest reading, so it meets the dot and the big value above the chart.
+            var last = points[^1];
+            var lastPoint = new Point(x(last.TimestampUtc), y(last.Value));
+
+            Point At(int i) => i == slots.Count - 1
+                ? lastPoint
+                : new Point(slots[i].X, y(onOff ? slots[i].Last : slots[i].Mean));
 
             var line = new StreamGeometry();
             using (var context = line.Open())
             {
-                context.BeginFigure(new Point(x(points[0].TimestampUtc), y(points[0].Value)), false, false);
+                context.BeginFigure(At(0), false, false);
 
-                for (int i = 1; i < points.Count; i++)
+                for (int i = 1; i < slots.Count; i++)
                 {
-                    if (onOff)
-                        context.LineTo(new Point(x(points[i].TimestampUtc), y(points[i - 1].Value)), true, false);
+                    var next = At(i);
 
-                    context.LineTo(new Point(x(points[i].TimestampUtc), y(points[i].Value)), true, false);
+                    // On/off devices step: hold the previous state until the change.
+                    if (onOff)
+                        context.LineTo(new Point(next.X, At(i - 1).Y), true, false);
+
+                    context.LineTo(next, true, false);
                 }
             }
 
             line.Freeze();
 
-            // Soft fill under the line.
-            var area = new StreamGeometry();
-            using (var context = area.Open())
-            {
-                context.BeginFigure(new Point(x(points[0].TimestampUtc), plot.Bottom), true, true);
-                foreach (var point in points)
-                    context.LineTo(new Point(x(point.TimestampUtc), y(point.Value)), false, false);
-                context.LineTo(new Point(x(points[^1].TimestampUtc), plot.Bottom), false, false);
-            }
-
-            area.Freeze();
-
-            var fill = new LinearGradientBrush(Color.FromArgb(0x30, 0x25, 0x63, 0xEB), Color.FromArgb(0x00, 0x25, 0x63, 0xEB), 90);
-            fill.Freeze();
-
-            if (!onOff)
-                drawing.DrawGeometry(fill, null, area);
-
             var pen = new Pen(LineBrush, 1.8) { LineJoin = PenLineJoin.Round };
             pen.Freeze();
             drawing.DrawGeometry(null, pen, line);
 
-            var last = points[^1];
-            var lastPoint = new Point(x(last.TimestampUtc), y(last.Value));
-
-            var ringPen = new Pen(LineBrush, 2);
+            // Latest reading: a blue dot inside a white ring inside a blue ring.
+            var ringPen = new Pen(LineBrush, 1.6);
             ringPen.Freeze();
-            drawing.DrawEllipse(Brushes.White, ringPen, lastPoint, 5, 5);
-
-            DrawValueTag(drawing, $"{last.Display} {timeline.Unit}".Trim(), lastPoint, plot);
+            drawing.DrawEllipse(Brushes.White, ringPen, lastPoint, 6.5, 6.5);
+            drawing.DrawEllipse(LineBrush, null, lastPoint, 3.6, 3.6);
         }
         //----------------------------------------------------------//
 
 
         /// <summary>
-        /// The latest value as a filled tag just left of the last point, kept inside the plot.
+        /// Axis labels carry short units ("35%"); longer ones would crowd the axis, so they are left off.
         /// </summary>
-        private void DrawValueTag(DrawingContext drawing, string text, Point anchor, Rect plot)
-        {
-            var formatted = Format(text, 11, Brushes.White, bold: true);
-
-            double width = formatted.Width + 14, height = formatted.Height + 6;
-            double left = Math.Max(plot.Left, anchor.X - 10 - width);
-            // Ensure the clamp upper bound is not less than the lower bound to avoid ArgumentException
-            double maxTop = Math.Max(plot.Top, plot.Bottom - height);
-            double top = Math.Clamp(anchor.Y - height / 2, plot.Top, maxTop);
-
-            drawing.DrawRoundedRectangle(LineBrush, null, new Rect(left, top, width, height), 4, 4);
-            drawing.DrawText(formatted, new Point(left + 7, top + 3));
-        }
-        
+        private static string AxisSuffix(string unit) => unit.Length is > 0 and <= 2 ? unit : string.Empty;
         //----------------------------------------------------------//
 
 
