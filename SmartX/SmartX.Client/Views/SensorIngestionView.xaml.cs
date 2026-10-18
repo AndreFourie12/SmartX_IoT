@@ -2,12 +2,12 @@
 using SmartX.Shared.Contracts;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Net.NetworkInformation;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using SmartX.Client.Dialogs;
+using SmartX.Client.Navigation;
 using SmartX.Shared.Models;
 using SmartX.Shared.Telemetry;
 using SmartX.Shared.Validation;
@@ -15,11 +15,18 @@ namespace SmartX.Client.Views
 {
     /// <summary>
     /// Interaction logic for SensorIngestionView.xaml
+    ///
+    /// Part 2: the navigation shell now caches this view for the whole session, so it implements
+    /// IModuleView - polling pauses while another pillar is showing and resumes (with a refresh) on
+    /// return, and the tree scope, selection and last batch are all kept in between. It also accepts
+    /// IDeviceFocus requests, so the Command Stream can open a device here directly.
     /// </summary>
-    public partial class SensorIngestionView : UserControl
+    public partial class SensorIngestionView : UserControl, IModuleView, IDeviceFocus
     {
         private readonly ObservableCollection<SensorDto> _rows = [];
         private readonly DispatcherTimer _liveTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+
+        public INavigator? Navigator { get; set; }
 
         private List<SensorDto> _allSensors = [];
         private List<DeploymentNode> _treeRoots = [];
@@ -32,32 +39,94 @@ namespace SmartX.Client.Views
 
         private LastBatch? _lastBatch;
 
+        // True while this view is the one on screen.
+        private bool _active;
+
 
         /// <summary>
         /// Builds the view and binds the sensor grid to its row collection.
-        /// Wires up a three second timer that keeps the engagement panel refreshed.
+        /// Wires up a three second timer that keeps the engagement panel refreshed, and picks up any change
+        /// to the set of registered sensors.
         /// </summary>
         public SensorIngestionView()
         {
             InitializeComponent();
             SensorsGrid.ItemsSource = _rows;
 
-            _liveTimer.Tick += async (_, _) => await RefreshEngagementAsync();
-            Loaded += OnLoadedAsync;
+            _liveTimer.Tick += async (_, _) =>
+            {
+                // A slow gateway must not let ticks pile up on top of each other.
+                if (_tickRunning)
+                    return;
+
+                _tickRunning = true;
+                try
+                {
+                    await RefreshSensorsIfChangedAsync();
+                    await RefreshEngagementAsync();
+                }
+                finally
+                {
+                    _tickRunning = false;
+                }
+            };
         }
         //----------------------------------------------------------//
+
+        private bool _tickRunning;
 
 
 
         /// <summary>
-        /// Runs once the view has loaded, pulling in the sensor list and the engagement summary.
-        /// Starts the live timer only after that first load has finished.
+        /// Runs each time the navigation shell shows this view, pulling in the sensor list and the engagement summary.
+        /// Starts the live timer only after that first load has finished - and only if the view is still
+        /// showing, since the operator may have switched away while the loads were awaited.
+        /// (Part 1 did this on Loaded, which WPF raises again every time a cached view is re-attached.)
         /// </summary>
-        public async void OnLoadedAsync(object sender, RoutedEventArgs e)
+        public async Task OnActivatedAsync()
         {
+            _active = true;
+
             await RefreshSensorsAsync();
             await RefreshEngagementAsync();
-            _liveTimer.Start();
+
+            if (_active)
+                _liveTimer.Start();
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Another pillar is showing: stop polling until this view comes back.
+        /// </summary>
+        public void OnDeactivated()
+        {
+            _active = false;
+            _liveTimer.Stop();
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Another module asked for a device: clear the tree scope so it is visible and remember it as the
+        /// selection. The refresh that follows activation selects its row and loads its readings.
+        /// </summary>
+        public void FocusDevice(string deviceId)
+        {
+            _scopePath = null;
+            _deviceScopeId = null;
+            _selectedSensorId = deviceId;
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Opens the selected device on the Real-Time Command Stream pillar.
+        /// </summary>
+        private async void OnOpenInCommandStreamClick(object sender, RoutedEventArgs e)
+        {
+            if (Navigator is not null && SensorsGrid.SelectedItem is SensorDto sensor)
+                await Navigator.NavigateAsync(Pillar.CommandStream, sensor.Id);
         }
         //----------------------------------------------------------//
 
@@ -83,10 +152,95 @@ namespace SmartX.Client.Views
                 BuildTree();
                 ApplyScope();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                ActionStatusText.Text = $"Could not reach the gateway: {ex.Message}";
+                ActionStatusText.Text = "Waiting for the gateway - retrying every 3 seconds. Is SmartX.Api running?";
             }
+        }
+        //----------------------------------------------------------//
+
+
+
+        /// <summary>
+        /// Called on every live tick. Re-fetches the sensor list but only rebuilds the tree and table when the
+        /// set of devices has actually changed, so the table doesn't flicker or lose its selection every 3 seconds.
+        ///
+        /// This is what fills the page on a cold start: the client often opens before the API is listening,
+        /// and the simulated devices register themselves over HTTP a moment after it is, so the first fetch
+        /// can come back empty. (Part 1 only fetched the list once, so the table stayed empty until Refresh.)
+        /// </summary>
+        private async Task RefreshSensorsIfChangedAsync()
+        {
+            try
+            {
+                var latest = await App.ApiClient.GetSensorAsync();
+
+                if (SameDevices(latest, _allSensors))
+                {
+                    RefreshRowCounts(latest);
+                    return;
+                }
+
+                bool wasEmpty = _allSensors.Count == 0;
+
+                _allSensors = latest;
+                BuildTree();
+                ApplyScope();
+
+                if (wasEmpty && latest.Count > 0)
+                    ActionStatusText.Text = $"Gateway online - {latest.Count} sensors loaded.";
+            }
+            catch
+            {
+                // Still unreachable; the status strip already says so and the next tick tries again.
+            }
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Same devices, newer figures: swaps in only the rows whose counts changed (SensorDto is a record,
+        /// so != compares every field) and puts the selection back on the same device. The selection
+        /// handler ignores this, so the readings panel and status line are not reloaded every 3 seconds,
+        /// and nothing is scrolled.
+        /// </summary>
+        private void RefreshRowCounts(List<SensorDto> latest)
+        {
+            var byId = latest.ToDictionary(sensor => sensor.Id);
+            _allSensors = latest;
+            _refreshingRows = true;
+
+            try
+            {
+                for (int i = 0; i < _rows.Count; i++)
+                {
+                    if (byId.TryGetValue(_rows[i].Id, out var fresh) && fresh != _rows[i])
+                        _rows[i] = fresh;
+                }
+
+                var selected = _rows.FirstOrDefault(row => row.Id == _selectedSensorId);
+                if (selected is not null && !ReferenceEquals(SensorsGrid.SelectedItem, selected))
+                    SensorsGrid.SelectedItem = selected;
+            }
+            finally
+            {
+                _refreshingRows = false;
+            }
+        }
+        //----------------------------------------------------------//
+
+        private bool _refreshingRows;
+
+
+        /// <summary>
+        /// True when both lists describe the same devices in the same places. Compared as sets, so order
+        /// doesn't matter; reading counts are deliberately ignored because they change on every packet.
+        /// </summary>
+        private static bool SameDevices(List<SensorDto> latest, List<SensorDto> current)
+        {
+            static string Key(SensorDto sensor) => $"{sensor.Id}|{sensor.Location}|{sensor.Category}|{sensor.DisplayName}";
+
+            return latest.Count == current.Count && latest.Select(Key).ToHashSet().SetEquals(current.Select(Key));
         }
         //----------------------------------------------------------//
 
@@ -310,6 +464,7 @@ namespace SmartX.Client.Views
             var sensor = SensorsGrid.SelectedItem as SensorDto;
 
             SimulateBatchButton.IsEnabled = sensor is not null;
+            OpenInCommandStreamButton.IsEnabled = sensor is not null;
             SimulateBatchButton.ToolTip = sensor is null
                 ? "Select a sensor in the table above."
                 : $"Send {sensor.Id} a jagged {BatchShapeFor(sensor.Category)} batch of sampling windows.";
@@ -354,11 +509,13 @@ namespace SmartX.Client.Views
         /// </summary>
         private async void OnSensorSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (SensorsGrid.SelectedItem is not SensorDto sensor)
+            // A background count refresh re-selecting the same device is not the operator picking one.
+            if (_refreshingRows || SensorsGrid.SelectedItem is not SensorDto sensor)
                 return;
 
             _selectedSensorId = sensor.Id;
-            ActionStatusText.Text = $"{sensor.Id} selected · {sensor.Location}";
+            ActionStatusText.Text = $"{sensor.DisplayName} ({sensor.Id}) selected · {sensor.Location}";
+            UpdateBatchButton();
             await LoadSensorDetailAsync(sensor.Id);
         }
         //----------------------------------------------------------//
@@ -375,8 +532,10 @@ namespace SmartX.Client.Views
             {
                 RenderLastBatch(sensorId);
 
+                // The ring buffer returns readings in arrival order; a device flushing old readings after a
+                // reconnect makes that differ from time order, so sort by timestamp for display.
                 var history = await App.ApiClient.GetTelemetryAsync(sensorId, take: 40);
-                TelemetryHistoryList.ItemsSource = history.Select(ToRow).ToList();
+                TelemetryHistoryList.ItemsSource = history.OrderByDescending(reading => reading.TimestampUtc).Select(ToRow).ToList();
                 TelemetryEmptyState.Visibility = history.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
                 var attachments = await App.ApiClient.GetAttachmentsAsync(sensorId);
@@ -400,12 +559,27 @@ namespace SmartX.Client.Views
         /// Flags the row when its timestamp came from the most recent simulated batch so it can be highlighted.
         /// </summary>
         private TelemetryRow ToRow(TelemetryDto reading) =>
-            new(reading.TimestampUtc,
-                reading.Value,
+            new(reading.TimestampUtc.ToLocalTime(),
+                DisplayValue(reading),
                 reading.Unit,
                 _lastBatch is not null
                     && _lastBatch.SensorId == reading.SensorId
                     && _lastBatch.Timestamps.Contains(reading.TimestampUtc));
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Actuator readings arrive as True/False; show them the way the device's category speaks
+        /// (ON/OFF, OPEN/CLOSED) so this list agrees with the Command Stream.
+        /// </summary>
+        private string DisplayValue(TelemetryDto reading)
+        {
+            var sensor = _allSensors.FirstOrDefault(s => s.Id == reading.SensorId);
+
+            return sensor is not null && sensor.Category.IsActuator() && bool.TryParse(reading.Value, out bool on)
+                ? sensor.Category.StateLabel(on)
+                : reading.Value;
+        }
         //----------------------------------------------------------//
 
 
@@ -446,16 +620,21 @@ namespace SmartX.Client.Views
             var rng = Random.Shared;
             int windowCount = rng.Next(4, 8);
 
-            var request = sensor.Category switch
-            {
-                SensorCategory.Environmental => new BatchTelemetryIngestRequest(TelemetryDataType.Float,JaggedWindows(
-                    windowCount, () => 35f + (float)rng.NextDouble() * 35f),null, null,"%"),
+            // The wire type, unit and believable range all come from the shared category metadata, so the
+            // Part 2 categories (soil moisture, temperature, pumps, valves) batch correctly too.
+            var (min, max) = sensor.Category.NormalRange();
+            string unit = sensor.Category.Unit();
 
-                SensorCategory.PowerConsumption => new BatchTelemetryIngestRequest(
-                    TelemetryDataType.Int, null,JaggedWindows(windowCount, () => 150 + rng.Next(-25, 25)),null,"W"),
+            var request = sensor.Category.DataType() switch
+            {
+                TelemetryDataType.Float => new BatchTelemetryIngestRequest(TelemetryDataType.Float, JaggedWindows(
+                    windowCount, () => (float)(min + rng.NextDouble() * (max - min))), null, null, unit),
+
+                TelemetryDataType.Int => new BatchTelemetryIngestRequest(
+                    TelemetryDataType.Int, null, JaggedWindows(windowCount, () => (int)(min + rng.NextDouble() * (max - min))), null, unit),
 
                 _ => new BatchTelemetryIngestRequest(
-                    TelemetryDataType.Bool,null,null,JaggedWindows(windowCount, () => rng.NextDouble() < 0.5),string.Empty)
+                    TelemetryDataType.Bool, null, null, JaggedWindows(windowCount, () => rng.NextDouble() < 0.5), unit)
             };
 
             try
@@ -517,10 +696,10 @@ namespace SmartX.Client.Views
         /// <summary>
         /// Returns the array shape a sensor category's batch will use, for the status line and tooltip.
         /// </summary>
-        private static string BatchShapeFor(SensorCategory category) => category switch
+        private static string BatchShapeFor(SensorCategory category) => category.DataType() switch
         {
-            SensorCategory.Environmental => "float[][]",
-            SensorCategory.PowerConsumption => "int[][]",
+            TelemetryDataType.Float => "float[][]",
+            TelemetryDataType.Int => "int[][]",
             _ => "bool[][]"
         };
         //----------------------------------------------------------//
