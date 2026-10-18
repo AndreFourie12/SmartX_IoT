@@ -281,7 +281,7 @@ The engine starts with a few days of seeded operator history (as the brief encou
 
 1. Within seconds B crosses 30 %  a **Moisture low** warning. Without anyone searching, **Pump A** is highlighted in the fleet (INSIGHT) and **Suggested Actions** shows **Turn ON Pump A** - *"Operators responded with this in 5 of 6 similar episodes"*. A **FORECAST** card predicts when B will cross 20 %, and *Anticipated* shows **Pump A** under the search box.
 2. Type `Moisture Sensor B` in the search box and pause - the search is logged. The engine's Markov chain now predicts the next step from your last action.
-3. Click **▶ Run** on *Turn ON Pump A*. The command is tagged *from suggestion*, Pump A confirms ON, and B's moisture starts **rising** on the timeline. The card's evidence now reads *"(1 this session)"* - it learned from you.
+3. Click **Run** on *Turn ON Pump A*. The command is tagged *from suggestion*, Pump A confirms ON, and B's moisture starts **rising** on the timeline. The card's evidence now reads *"(1 this session)"* - it learned from you.
 4. Leave Pump A running: Moisture Sensor A (also fed by Pump A) eventually overwaters, and the engine suggests **Turn OFF Pump A** (learned 3 of 3).
 5. Try **Shut down all valves** while B is dry: a **ZONE RULE** card points out that *Valve 2 is closed, so no pump can get water to this bay* - a prerequisite it shows even alongside the learned pump suggestion.
 6. Expand **Learned patterns** under the cards to see the strongest condition → response patterns behind the suggestions, with how often each held.
@@ -297,7 +297,7 @@ The cards come from four analyses: **LEARNED** (what operators did after the sam
 |---|---|
 | Generics (`TelemetryPacket<T>`) | [`TelemetryPacket.cs`](SmartX/SmartX.Shared/Telemetry/TelemetryPacket.cs) - constrained to `struct`; value formatting and numeric conversion use JIT-folded `typeof(T)` branches so the value is never boxed. |
 | Operator overloading | [`PowerReading.cs`](SmartX/SmartX.Shared/Telemetry/PowerReading.cs) - `+`, `-`, `<`, `>`, `==` and friends; used for the Smart Meter Aggregation strip in [`SensorIngestionView.xaml.cs`](SmartX/SmartX.Client/Views/SensorIngestionView.xaml.cs). |
-| Jagged arrays → List&lt;T&gt; | [`BatchTelemetryProcessor.cs`](SmartX/SmartX.Shared/Telemetry/BatchTelemetryProcessor.cs) - `T[][]` sampling windows into a pre-sized `List<TelemetryPacket<T>>`. |
+| Jagged arrays List&lt;T&gt; | [`BatchTelemetryProcessor.cs`](SmartX/SmartX.Shared/Telemetry/BatchTelemetryProcessor.cs) - `T[][]` sampling windows into a pre-sized `List<TelemetryPacket<T>>`. |
 | Recursion | [`DeploymentValidator.cs`](SmartX/SmartX.Shared/Validation/DeploymentValidator.cs) - recursive Facility → Zone → Sub-Zone → Device validation with a depth guard. |
 | API integration | Minimal API in [`SmartX/SmartX.Api/Endpoints`](SmartX/SmartX.Api/Endpoints), consumed by [`SmartXApiClient.cs`](SmartX/SmartX.Client/Services/SmartXApiClient.cs). |
 | Sensor registration | [`AddSensorDialog.xaml.cs`](SmartX/SmartX.Client/Dialogs/AddSensorDialog.xaml.cs) → `POST /api/sensors` ([`SensorEndpoints.cs`](SmartX/SmartX.Api/Endpoints/SensorEndpoints.cs)). |
