@@ -78,9 +78,11 @@ namespace SmartX.Api.Topology
 
         /// <summary>
         /// Runs BFS, DFS and Prim from the gateway, with the down nodes worked out once so all three
-        /// see the same picture.
+        /// see the same picture. 'treatAsUp' names one node to count as up even if the health monitor
+        /// still has it flagged disconnected: that flag only clears when the node's next packet arrives,
+        /// which is a moment after an operator restores it.
         /// </summary>
-        private MeshState Compute()
+        private MeshState Compute(string? treatAsUp = null)
         {
             var down = new HashSet<string>(DeviceIdentifier.Comparer);
 
@@ -92,6 +94,9 @@ namespace SmartX.Api.Topology
                 if (alerts.IsDisconnected(node.Id))
                     down.Add(node.Id);
             }
+
+            if (treatAsUp is not null)
+                down.Remove(treatAsUp);
 
             // The gateway is the root of every search and is never treated as down.
             down.Remove(MeshSeed.GatewayId);
@@ -126,6 +131,130 @@ namespace SmartX.Api.Topology
             return new MeshNodeDto(node.Id, node.Name, node.Mac, node.X, node.Y, status, hops, cost);
         }
         //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// One node's route to the gateway, by its id or MAC address. Null if the node is unknown.
+        /// A node that is down or cut off comes back as not reachable, with empty paths.
+        /// </summary>
+        public RouteDto? RouteFor(string idOrMac)
+        {
+            if (!_graph.TryGetNode(idOrMac, out var node))
+                return null;
+
+            var state = Compute();
+            var tree = TreeRoute(state, node.Id);
+
+            if (tree is null)
+                return new RouteDto(node.Id, node.Name, node.Mac, false, [], 0, 0, [], 0, [], 0);
+
+            // Same node, two other answers: the breadth-first route (fewest hops, not least power) and
+            // Dijkstra's route (least power for this node, whatever the hops).
+            var fewest = MeshAlgorithms.RouteTo(state.Bfs.Parent, node.Id);
+            var cheapest = MeshAlgorithms.RouteTo(MeshAlgorithms.Dijkstra(_graph, MeshSeed.GatewayId, state.Down.Contains).Parent, node.Id);
+
+            return new RouteDto(
+                node.Id, node.Name, node.Mac, true,
+                ToHops(tree), tree.Count - 1, PathCost(tree),
+                ToHops(fewest), PathCost(fewest),
+                ToHops(cheapest), PathCost(cheapest));
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Marks a node failed (or brings it back), then compares every other node's route before and
+        /// after to find who had to hop a different way. Null if the node is unknown.
+        /// </summary>
+        public FailureResultDto? SetDown(string idOrMac, bool down)
+        {
+            if (!_graph.TryGetNode(idOrMac, out var node))
+                return null;
+
+            MeshState before;
+            MeshState after;
+
+            lock (_gate)
+            {
+                before = Compute();
+
+                if (down)
+                    _failed.Add(node.Id);
+                else
+                    _failed.Remove(node.Id);
+
+                // A restored node counts as up straight away, so the result shows the links and routes it brings back.
+                after = Compute(down ? null : node.Id);
+            }
+
+            var rerouted = new List<RerouteDto>();
+
+            foreach (var other in _graph.Nodes)
+            {
+                if (other.Id == MeshSeed.GatewayId || string.Equals(other.Id, node.Id, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var oldRoute = TreeRoute(before, other.Id);
+                var newRoute = TreeRoute(after, other.Id);
+
+                if (oldRoute is null && newRoute is null)
+                    continue;
+
+                if (oldRoute is null || newRoute is null || !oldRoute.SequenceEqual(newRoute, DeviceIdentifier.Comparer))
+                    rerouted.Add(new RerouteDto(other.Name, oldRoute?.Count - 1, newRoute?.Count - 1));
+            }
+
+            int linksBefore = ActiveLinks(before);
+            int linksAfter = ActiveLinks(after);
+            int isolated = after.Mst.Unreachable.Count;
+
+            return new FailureResultDto(
+                node.Id,
+                node.Name,
+                down,
+                DateTimeOffset.UtcNow,
+                Math.Max(0, linksBefore - linksAfter),
+                Math.Max(0, linksAfter - linksBefore),
+                isolated,
+                isolated == 0,
+                rerouted);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// The ids from a node to the gateway through the spanning tree, or null if the node is down or
+        /// the tree never reached it.
+        /// </summary>
+        private static List<string>? TreeRoute(MeshState state, string id)
+        {
+            bool reached = id == MeshSeed.GatewayId || state.Mst.Parent.ContainsKey(id);
+
+            return reached && !state.Down.Contains(id)
+                ? MeshAlgorithms.RouteTo(state.Mst.Parent, id)
+                : null;
+        }
+
+
+        private int ActiveLinks(MeshState state) =>
+            _graph.Links.Count(link => !state.Down.Contains(link.From) && !state.Down.Contains(link.To));
+
+
+        /// <summary>
+        /// Turns a list of node ids into route stops, each carrying the cost of the link into it.
+        /// </summary>
+        private List<RouteHopDto> ToHops(List<string> path)
+        {
+            var hops = new List<RouteHopDto>();
+
+            for (int i = 0; i < path.Count; i++)
+            {
+                _graph.TryGetNode(path[i], out var stop);
+                hops.Add(new RouteHopDto(stop.Id, stop.Name, stop.Mac, i == 0 ? 0 : LinkCost(path[i - 1], path[i])));
+            }
+
+            return hops;
+        }
 
 
         private bool HasFault(string id) => registry.TryGetSnapshot(id, out var device) && device.Fault is not null;
