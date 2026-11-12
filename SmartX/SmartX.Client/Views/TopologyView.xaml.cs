@@ -36,6 +36,7 @@ namespace SmartX.Client.Views
         private static readonly Brush LabelBackdrop = new SolidColorBrush(Color.FromArgb(0xCC, 0xF4, 0xF6, 0xF9));
 
         private TopologySnapshotDto? _snapshot;
+        private FailureResultDto? _lastFailure;
         private string? _selectedId;
         private bool _active;
         private bool _refreshing;
@@ -141,6 +142,8 @@ namespace SmartX.Client.Views
                     RenderRoute(route);
                     DrawMesh(route);
                     RenderConnectivity();
+                    RenderFailureButton();
+                    RenderHopOver(route);
 
                     StatusText.Text = _subtitle;
                 }
@@ -439,6 +442,148 @@ namespace SmartX.Client.Views
 
 
         private void OnTraversalChanged(object sender, RoutedEventArgs e) => RenderConnectivity();
+        //----------------------------------------------------------//
+
+
+
+        // ================================ Failure and self-healing ================================ //
+
+        /// <summary>
+        /// Takes the selected node down, or brings it back if it is already down, then shows what the
+        /// gateway says changed in the Self-healing card.
+        /// </summary>
+        private async void OnFailureClick(object sender, RoutedEventArgs e)
+        {
+            var node = SelectedNode();
+            if (node is null || node.Id == GatewayId)
+                return;
+
+            FailureButton.IsEnabled = false;
+
+            try
+            {
+                bool goDown = node.Status != MeshNodeStatus.Down;
+                _lastFailure = await App.ApiClient.SetNodeDownAsync(node.Id, goDown);
+
+                RenderHealing();
+                await RefreshAsync();
+            }
+            catch (Exception)
+            {
+                StatusText.Text = "Can't reach the gateway - the node was not changed. Is SmartX.Api running?";
+            }
+            finally
+            {
+                RenderFailureButton();
+            }
+        }
+        //----------------------------------------------------------//
+
+
+        private MeshNodeDto? SelectedNode() =>
+            _snapshot?.Nodes.FirstOrDefault(node => string.Equals(node.Id, _selectedId, StringComparison.OrdinalIgnoreCase));
+
+
+        /// <summary>
+        /// The button reads "Simulate node failure" for a live node and "Restore node" for a down one,
+        /// and is disabled for the gateway, which is the root of every route.
+        /// </summary>
+        private void RenderFailureButton()
+        {
+            var node = SelectedNode();
+            bool isDown = node?.Status == MeshNodeStatus.Down;
+
+            FailureButton.IsEnabled = node is not null && node.Id != GatewayId;
+            FailureLabel.Text = isDown ? "Restore node" : "Simulate node failure";
+            FailureIcon.Text = isDown ? "" : "";
+            FailureIcon.Foreground = Palette.Get(isDown ? "StatusGreen" : "StatusRed");
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// The Self-healing card: what went down (or came back), links lost, nodes isolated, and the
+        /// table of nodes whose route changed, with hops before and after.
+        /// </summary>
+        private void RenderHealing()
+        {
+            if (_lastFailure is not { } result)
+                return;
+
+            HealEmpty.Visibility = Visibility.Collapsed;
+            HealSummary.Visibility = Visibility.Visible;
+            HealBadge.Visibility = Visibility.Visible;
+
+            string time = result.AtUtc.ToLocalTime().ToString("HH:mm:ss");
+            HealText.Inlines.Clear();
+
+            if (result.WentDown)
+            {
+                HealSummary.Background = Palette.Get("StatusRedSoft");
+                HealSummary.BorderBrush = Palette.Get("StatusRedBorder");
+
+                HealText.Inlines.Add(new Run($"{result.Name} went offline at {time}. ") { FontWeight = FontWeights.SemiBold, Foreground = Palette.Get("StatusRedText") });
+                HealText.Inlines.Add(new Run($"{result.LinksLost} link{(result.LinksLost == 1 ? "" : "s")} lost, {result.NodesIsolated} node{(result.NodesIsolated == 1 ? "" : "s")} isolated."));
+
+                SetBadge(result.Healed ? "HEALED" : $"{result.NodesIsolated} ISOLATED", result.Healed ? "StatusGreen" : "StatusRedText", result.Healed ? "StatusGreenSoft" : "StatusRedSoft");
+            }
+            else
+            {
+                HealSummary.Background = Palette.Get("StatusGreenSoft");
+                HealSummary.BorderBrush = Palette.Get("StatusGreenSoft");
+
+                HealText.Inlines.Add(new Run($"{result.Name} came back online at {time}. ") { FontWeight = FontWeights.SemiBold, Foreground = Palette.Get("StatusGreen") });
+                HealText.Inlines.Add(new Run($"{result.LinksRestored} link{(result.LinksRestored == 1 ? "" : "s")} restored."));
+
+                SetBadge("RESTORED", "StatusGreen", "StatusGreenSoft");
+            }
+
+            HealListTitle.Visibility = result.Rerouted.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            HealListTitle.Text = $"{result.Rerouted.Count} NODE{(result.Rerouted.Count == 1 ? "" : "S")} RE-ROUTED";
+
+            HealList.ItemsSource = result.Rerouted
+                .Select(node => new RerouteRow(node.Name, $"{HopsOrDash(node.HopsBefore)} → {HopsOrDash(node.HopsAfter)} hops"))
+                .ToList();
+        }
+        //----------------------------------------------------------//
+
+
+        private void SetBadge(string text, string foreground, string background)
+        {
+            HealBadgeText.Text = text;
+            HealBadgeText.Foreground = Palette.Get(foreground);
+            HealBadge.Background = Palette.Get(background);
+        }
+
+
+        private static string HopsOrDash(int? hops) => hops?.ToString() ?? "–";
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// A one-line explanation under the Connectivity strip when the selected node's route changed
+        /// because of the last failure: which node is down and which neighbour it now hops through.
+        /// </summary>
+        private void RenderHopOver(RouteDto? route)
+        {
+            var failed = _lastFailure is { WentDown: true } result && SelectedNodeIsDown(result.NodeId) ? result : null;
+
+            if (failed is null || route is not { Reachable: true, Path.Count: > 1 } || failed.Rerouted.All(node => node.Name != route.Name))
+            {
+                HopOverNote.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            HopOverText.Inlines.Clear();
+            HopOverText.Inlines.Add(new Run("Hop-over") { FontWeight = FontWeights.Bold, Foreground = Palette.Get("InsightText") });
+            HopOverText.Inlines.Add(new Run($" · {failed.Name} is down, so {route.Name} now hops through {route.Path[1].Name}."));
+            HopOverNote.Visibility = Visibility.Visible;
+        }
+
+
+        // The note only makes sense while the node that failed is still down.
+        private bool SelectedNodeIsDown(string nodeId) =>
+            _snapshot?.Nodes.FirstOrDefault(node => node.Id == nodeId)?.Status == MeshNodeStatus.Down;
         //----------------------------------------------------------//
 
 
@@ -769,6 +914,13 @@ namespace SmartX.Client.Views
     /// One line under Route options: a way of routing the node, and its hops and power.
     /// </summary>
     public sealed record RouteOptionRow(string Label, string Detail, Brush DetailBrush);
+    //----------------------------------------------------------//
+
+
+    /// <summary>
+    /// One line in the Self-healing table: a node whose route changed, and its hop count before and after.
+    /// </summary>
+    public sealed record RerouteRow(string Name, string Change);
     //----------------------------------------------------------//
 
 

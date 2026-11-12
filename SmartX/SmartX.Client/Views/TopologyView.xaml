@@ -222,10 +222,22 @@
                     <!-- ============ Centre: the mesh drawn from the snapshot ============ -->
                     <Border Grid.Column="1" Style="{StaticResource StreamCard}" Margin="16,0,0,0" VerticalAlignment="Top">
                         <StackPanel Margin="22,20,22,18">
-                            <StackPanel>
-                                <TextBlock Text="Mesh topology" Style="{StaticResource CardTitle}" />
-                                <TextBlock x:Name="MeshSubtitle" Style="{StaticResource MutedText}" Margin="0,4,0,0" />
-                            </StackPanel>
+                            <Grid>
+                                <StackPanel>
+                                    <TextBlock Text="Mesh topology" Style="{StaticResource CardTitle}" />
+                                    <TextBlock x:Name="MeshSubtitle" Style="{StaticResource MutedText}" Margin="0,4,0,0" />
+                                </StackPanel>
+
+                                <Button x:Name="FailureButton" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
+                                        VerticalAlignment="Center" Click="OnFailureClick"
+                                        ToolTip="Take the selected node down and watch the mesh route around it. Click again to bring it back.">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="FailureIcon" Text="&#xE945;" Style="{StaticResource Icon}" FontSize="13"
+                                                   Foreground="{StaticResource StatusRed}" Margin="0,0,9,0" />
+                                        <TextBlock x:Name="FailureLabel" Text="Simulate node failure" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
 
                             <!-- Positions come from the gateway for a 1100 x 460 drawing area; the Viewbox scales it to fit -->
                             <Border Background="{StaticResource HoverGrey}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
@@ -283,6 +295,13 @@
                             </Grid>
                             <TextBlock x:Name="OrderText" Style="{StaticResource MutedText}" FontSize="12" TextWrapping="Wrap"
                                        LineHeight="18" Margin="0,10,0,0" />
+
+                            <!-- Shown when the selected node had to find a different way round a failure -->
+                            <Border x:Name="HopOverNote" Visibility="Collapsed" Background="{StaticResource InsightCardBackground}"
+                                    BorderBrush="{StaticResource InsightBorder}" BorderThickness="1" CornerRadius="6" Padding="14,10"
+                                    Margin="0,14,0,0">
+                                <TextBlock x:Name="HopOverText" FontSize="13" TextWrapping="Wrap" Foreground="{StaticResource TextPrimary}" />
+                            </Border>
                         </StackPanel>
                     </Border>
 
@@ -371,6 +390,42 @@
 
                                 <TextBlock x:Name="RouteNote" Style="{StaticResource MutedText}" FontSize="11.5" TextWrapping="Wrap"
                                            LineHeight="17" Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <!-- ============ Self-healing: what the last failure did ============ -->
+                        <Border Style="{StaticResource StreamCard}" Margin="0,16,0,0">
+                            <StackPanel Margin="20,20,20,18">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Self-healing" Style="{StaticResource CardTitle}" />
+                                    <Border x:Name="HealBadge" Visibility="Collapsed" CornerRadius="4" Padding="7,2" Margin="12,1,0,0"
+                                            VerticalAlignment="Center">
+                                        <TextBlock x:Name="HealBadgeText" Style="{StaticResource TagText}" FontSize="10" />
+                                    </Border>
+                                </StackPanel>
+
+                                <TextBlock x:Name="HealEmpty" Style="{StaticResource MutedText}" TextWrapping="Wrap" LineHeight="18" Margin="0,12,0,0"
+                                           Text="No failure yet. Select a node and choose Simulate node failure to see the mesh route around it." />
+
+                                <Border x:Name="HealSummary" Visibility="Collapsed" CornerRadius="6" BorderThickness="1" Padding="14,10" Margin="0,14,0,0">
+                                    <TextBlock x:Name="HealText" FontSize="13" TextWrapping="Wrap" LineHeight="19" Foreground="{StaticResource TextPrimary}" />
+                                </Border>
+
+                                <TextBlock x:Name="HealListTitle" Visibility="Collapsed" Style="{StaticResource EyebrowText}" Margin="0,16,0,6" />
+                                <ItemsControl x:Name="HealList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,0">
+                                                <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="0,1,0,0" Padding="0,9">
+                                                    <Grid>
+                                                        <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{StaticResource TextPrimary}" />
+                                                        <TextBlock Text="{Binding Change}" FontFamily="{StaticResource MonoFont}" FontSize="12"
+                                                                   Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Right" />
+                                                    </Grid>
+                                                </Border>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </Border>
                     </StackPanel>
