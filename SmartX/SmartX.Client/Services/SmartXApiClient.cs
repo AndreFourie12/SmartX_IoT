@@ -264,6 +264,60 @@ namespace SmartX.Client.Services
             return response.IsSuccessStatusCode;
         }
         //----------------------------------------------------------//
+
+
+
+        // ============================ Part 3: Network Topology & Mesh Routing ============================ //
+
+        /// <summary>
+        /// The whole mesh as the gateway sees it right now: nodes, links, and the counters behind the header.
+        /// </summary>
+        public async Task<TopologySnapshotDto?> GetTopologyAsync(CancellationToken ct = default) =>
+            await _http.GetFromJsonAsync<TopologySnapshotDto>("/api/topology", JsonOptions, ct);
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// One node's route to the gateway. The node can be named by id or by MAC address.
+        /// </summary>
+        public async Task<RouteDto?> GetRouteAsync(string idOrMac, CancellationToken ct = default) =>
+            await _http.GetFromJsonAsync<RouteDto>($"/api/topology/route/{Id(idOrMac)}", JsonOptions, ct);
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Marks a node failed, or brings it back. The result lists the nodes that had to find a new route.
+        /// </summary>
+        public async Task<FailureResultDto?> SetNodeDownAsync(string nodeId, bool down, CancellationToken ct = default)
+        {
+            string action = down ? "down" : "up";
+            using var response = await _http.PostAsync($"/api/topology/nodes/{Id(nodeId)}/{action}", null, ct);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<FailureResultDto>(JsonOptions, ct);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Readings for one sensor between two instants, plus how many tree nodes the query visited.
+        /// Throws with the gateway's reason if the sensor is unknown or the range is backwards.
+        /// </summary>
+        public async Task<TopologyHistoryDto?> GetHistoryAsync(string idOrMac, DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken ct = default)
+        {
+            string from = Uri.EscapeDataString(fromUtc.UtcDateTime.ToString("O"));
+            string to = Uri.EscapeDataString(toUtc.UtcDateTime.ToString("O"));
+
+            using var response = await _http.GetAsync($"/api/topology/history/{Id(idOrMac)}?from={from}&to={to}", ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                throw new InvalidOperationException(body.Trim('"'));
+            }
+
+            return await response.Content.ReadFromJsonAsync<TopologyHistoryDto>(JsonOptions, ct);
+        }
+        //----------------------------------------------------------//
     }
 }
 
