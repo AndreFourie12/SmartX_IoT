@@ -19,7 +19,8 @@ namespace SmartX.Api.Streaming
     /// </summary>
     public sealed class TelemetryTimelineStore
     {
-        public const int MaxPointsPerDevice = 1500;
+        // About 5.5 hours at one reading per four seconds, so a two-hour history query is realistic.
+        public const int MaxPointsPerDevice = 5000;
 
         private readonly Lock _gate = new();
         private readonly Dictionary<string, AvlTree<TimelineKey, double>> _timelines = new(DeviceIdentifier.Comparer);
