@@ -130,7 +130,7 @@ namespace SmartX.Client
                 {
                     Pillar.Ingestion => new SensorIngestionView { Navigator = this },
                     Pillar.CommandStream => new CommandStreamView(this),
-                    _ => new TopologyPlaceholderView()
+                    _ => new TopologyView(this)
                 };
 
                 _views[pillar] = view;
