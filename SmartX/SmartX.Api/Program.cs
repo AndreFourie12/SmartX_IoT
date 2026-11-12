@@ -6,6 +6,7 @@ using SmartX.Api.Endpoints;
 using SmartX.Api.Insights;
 using SmartX.Api.Services;
 using SmartX.Api.Streaming;
+using SmartX.Api.Topology;
 
 // Every string the gateway builds ("Moisture low: 29.6%") is read by clients in any locale, so format
 // numbers the same way everywhere rather than with whatever decimal separator the host machine uses.
@@ -48,6 +49,9 @@ builder.Services.AddSingleton<CommandHistoryService>();
 builder.Services.AddSingleton<CommandStreamService>();
 builder.Services.AddSingleton<SimulationControl>();
 
+// Network topology and mesh routing (Part 3)
+builder.Services.AddSingleton<MeshTopologyService>();
+
 // The queue consumer and the dropout sweep.
 builder.Services.AddHostedService<TelemetryProcessingService>();
 builder.Services.AddHostedService<DeviceHealthMonitorService>();
@@ -80,6 +84,7 @@ app.MapEngagementEndpoints();
 app.MapGatewayEndpoints();
 app.MapCommandStreamEndpoints();
 app.MapSimulatorEndpoints();
+app.MapTopologyEndpoints();
 
 app.MapGet("/", () => Results.Ok(new { service = "Smart-X Data Ingestion Gateway", status = "online" }));
 

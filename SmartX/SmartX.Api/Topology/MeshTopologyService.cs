@@ -178,7 +178,8 @@ namespace SmartX.Api.Topology
             {
                 before = Compute();
 
-                if (down)
+                // The gateway is the root of every route, so it cannot be marked failed.
+                if (down && node.Id != MeshSeed.GatewayId)
                     _failed.Add(node.Id);
                 else
                     _failed.Remove(node.Id);
@@ -211,7 +212,7 @@ namespace SmartX.Api.Topology
             return new FailureResultDto(
                 node.Id,
                 node.Name,
-                down,
+                down && node.Id != MeshSeed.GatewayId,
                 DateTimeOffset.UtcNow,
                 Math.Max(0, linksBefore - linksAfter),
                 Math.Max(0, linksAfter - linksBefore),
