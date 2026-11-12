@@ -55,6 +55,46 @@ namespace SmartX.Api.Topology
             return new BfsResult(order, hops, parent);
         }
         //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Depth-first search from the root.
+        ///
+        /// A stack makes it follow one branch as far as it goes before backing up, so the visit order
+        /// differs from BFS. The page only uses it for the BFS/DFS toggle: both reach the same nodes.
+        /// Neighbours are pushed in reverse so the first-listed neighbour is explored first.
+        /// </summary>
+        public static List<string> Dfs(MeshGraph graph, string root, Func<string, bool> isDown)
+        {
+            var order = new List<string>();
+
+            if (isDown(root))
+                return order;
+
+            var seen = new HashSet<string>(DeviceIdentifier.Comparer);
+            var stack = new Stack<string>();
+            stack.Push(root);
+
+            while (stack.Count > 0)
+            {
+                string current = stack.Pop();
+
+                if (!seen.Add(current))
+                    continue;
+
+                order.Add(current);
+
+                var links = graph.LinksOf(current);
+                for (int i = links.Count - 1; i >= 0; i--)
+                {
+                    if (!isDown(links[i].To) && !seen.Contains(links[i].To))
+                        stack.Push(links[i].To);
+                }
+            }
+
+            return order;
+        }
+        //----------------------------------------------------------//
     }
 }
 
