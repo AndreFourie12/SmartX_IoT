@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -139,6 +140,7 @@ namespace SmartX.Client.Views
                     var route = _selectedId is null ? null : await App.ApiClient.GetRouteAsync(_selectedId);
                     RenderRoute(route);
                     DrawMesh(route);
+                    RenderConnectivity();
 
                     StatusText.Text = _subtitle;
                 }
@@ -393,6 +395,50 @@ namespace SmartX.Client.Views
                 ? $"{_snapshot.Nodes.Count} nodes · {_snapshot.LinksTotal} links"
                 : $"{_snapshot.Nodes.Count} nodes · {_snapshot.LinksTotal} links · {_snapshot.LinksTotal - _snapshot.LinksActive} lost to the offline node{(down == 1 ? "" : "s")}";
         }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// The Connectivity strip: how many live nodes a search from the gateway reached, which nodes are
+        /// down or cut off, and the order the chosen search (BFS or DFS) visited them in. Both reach the
+        /// same nodes, so the toggle only changes the order shown.
+        /// </summary>
+        private void RenderConnectivity()
+        {
+            if (_snapshot is null)
+                return;
+
+            bool depthFirst = DfsButton.IsChecked == true;
+            var order = depthFirst ? _snapshot.DfsOrder : _snapshot.BfsOrder;
+            var byId = _snapshot.Nodes.ToDictionary(node => node.Id, StringComparer.OrdinalIgnoreCase);
+
+            int reached = order.Count(id => id != GatewayId);
+            ReachText.Inlines.Clear();
+            ReachText.Inlines.Add(new Run("Reached "));
+            ReachText.Inlines.Add(new Run($"{reached} of {_snapshot.NodesOnline}") { FontWeight = FontWeights.SemiBold });
+            ReachText.Inlines.Add(new Run(" live nodes"));
+
+            var down = _snapshot.Nodes.Where(node => node.Status == MeshNodeStatus.Down).Select(node => $"{node.Name} ({node.Id})").ToList();
+            if (down.Count > 0)
+            {
+                ReachText.Inlines.Add(new Run(" · "));
+                ReachText.Inlines.Add(new Run($"Down: {string.Join(", ", down)}") { FontWeight = FontWeights.SemiBold, Foreground = Palette.Get("StatusRedText") });
+            }
+
+            if (_snapshot.UnreachableIds.Count > 0)
+            {
+                var cutOff = _snapshot.UnreachableIds.Select(id => byId[id].Name);
+                ReachText.Inlines.Add(new Run(" · "));
+                ReachText.Inlines.Add(new Run($"Cut off: {string.Join(", ", cutOff)}") { FontWeight = FontWeights.SemiBold, Foreground = Palette.Get("StatusAmber") });
+            }
+
+            string how = depthFirst ? "DFS (a stack) follows one branch to its end first" : "BFS (a queue) takes the nearest nodes first";
+            OrderText.Text = $"{how}: {string.Join(" → ", order.Select(id => id == GatewayId ? "Gateway" : byId[id].Name))}";
+        }
+        //----------------------------------------------------------//
+
+
+        private void OnTraversalChanged(object sender, RoutedEventArgs e) => RenderConnectivity();
         //----------------------------------------------------------//
 
 
