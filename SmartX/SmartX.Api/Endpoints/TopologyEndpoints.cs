@@ -34,6 +34,20 @@ namespace SmartX.Api.Endpoints
                 .Produces(StatusCodes.Status404NotFound);
 
 
+            group.MapGet("/history/{idOrMac}", (string idOrMac, DateTimeOffset from, DateTimeOffset to, MeshTopologyService topology) =>
+            {
+                if (from > to)
+                    return Results.BadRequest("'from' must not be after 'to'.");
+
+                return topology.History(idOrMac, from, to) is { } history
+                    ? Results.Ok(history)
+                    : Results.NotFound($"No sensor with id or MAC '{idOrMac}'.");
+            })
+            .Produces<TopologyHistoryDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
+
+
             group.MapPost("/nodes/{id}/up", (string id, MeshTopologyService topology, SimulationControl simulation) => Failure(topology, simulation, id, down: false))
                 .Produces<FailureResultDto>()
                 .Produces(StatusCodes.Status404NotFound);

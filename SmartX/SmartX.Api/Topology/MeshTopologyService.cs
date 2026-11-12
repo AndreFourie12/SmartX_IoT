@@ -13,7 +13,7 @@ namespace SmartX.Api.Topology
     /// A node counts as down if it was marked failed here OR the health monitor has flagged it
     /// disconnected (AlertTracker); either way the algorithms skip it and the links touching it.
     /// </summary>
-    public sealed class MeshTopologyService(AlertTracker alerts, LiveDeviceRegistry registry)
+    public sealed class MeshTopologyService(AlertTracker alerts, LiveDeviceRegistry registry, TelemetryTimelineStore timelines)
     {
         /// <summary>
         /// The result of running the algorithms once against one moment's set of down nodes.
@@ -219,6 +219,23 @@ namespace SmartX.Api.Topology
                 isolated,
                 isolated == 0,
                 rerouted);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// A sensor's readings between two instants, found with the timeline tree's range query.
+        /// The sensor can be named by id or by the MAC address the mesh gives it. Null if it is unknown.
+        /// </summary>
+        public TopologyHistoryDto? History(string idOrMac, DateTimeOffset fromUtc, DateTimeOffset toUtc)
+        {
+            string id = _graph.TryGetNode(idOrMac, out var node) ? node.Id : idOrMac;
+
+            if (!registry.TryGetSnapshot(id, out var device))
+                return null;
+
+            var (timeline, visited, height) = timelines.BuildRange(device, fromUtc, toUtc);
+            return new TopologyHistoryDto(timeline, visited, height);
         }
         //----------------------------------------------------------//
 
