@@ -1,0 +1,314 @@
+<UserControl x:Class="SmartX.Client.Views.TopologyView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="Segoe UI">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
+        <!-- Windows' built-in icon font: Fluent Icons on Windows 11, MDL2 Assets on Windows 10 -->
+        <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+        <Style x:Key="Icon" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="CardCount" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+            <Setter Property="Margin" Value="8,1,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- ============ Header counters ============ -->
+        <Style x:Key="KpiDivider" TargetType="Border">
+            <Setter Property="Width" Value="1" />
+            <Setter Property="Height" Value="58" />
+            <Setter Property="Background" Value="{StaticResource ShellDarkLine}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="KpiTile" TargetType="StackPanel">
+            <Setter Property="MinWidth" Value="150" />
+            <Setter Property="Margin" Value="22,0,22,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="HeaderKpiValue" TargetType="TextBlock" BasedOn="{StaticResource KpiValue}">
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="26" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+
+        <Style x:Key="KpiUnit" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="{StaticResource TextOnDarkMuted}" />
+            <Setter Property="VerticalAlignment" Value="Bottom" />
+            <Setter Property="Margin" Value="6,0,0,4" />
+        </Style>
+
+        <!-- ============ Node list ============ -->
+        <!-- A full-width row with a divider under it. Selected rows turn blue, down nodes red. -->
+        <Style x:Key="NodeListItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="Transparent" BorderBrush="{StaticResource CardBorder}"
+                                BorderThickness="0,0,0,1" CornerRadius="0" SnapsToDevicePixels="True">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverGrey}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsDown}" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource StatusRedSoft}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource StatusRedBorder}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="1" />
+                                <Setter TargetName="Bd" Property="CornerRadius" Value="6" />
+                            </DataTrigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBlueSoft}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource SelectedRowBorder}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="1" />
+                                <Setter TargetName="Bd" Property="CornerRadius" Value="6" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ==================== Header: title and the three counters ==================== -->
+        <Border Grid.Row="0" Style="{StaticResource DarkCard}" CornerRadius="12" Padding="26,22">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="260" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Network Topology &amp; Mesh Routing" Style="{StaticResource PageTitle}" />
+                    <TextBlock x:Name="StatusText"
+                               Text="How the ESP32 nodes link up, which route each one uses to the gateway, and what they reported over time."
+                               Style="{StaticResource PageSubtitle}" TextWrapping="Wrap" LineHeight="20"
+                               Margin="0,10,0,0" MaxWidth="460" HorizontalAlignment="Left" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel Style="{StaticResource KpiTile}" Margin="0,0,22,0">
+                        <TextBlock Text="NODES ONLINE" Style="{StaticResource KpiLabel}" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="OnlineValue" Text="--" Style="{StaticResource HeaderKpiValue}" />
+                            <TextBlock x:Name="OnlineTotal" Style="{StaticResource KpiUnit}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                            <TextBlock x:Name="DownText" Text="" Style="{StaticResource KpiCaption}" Margin="0" />
+                            <TextBlock x:Name="IsolatedText" Text="" Style="{StaticResource KpiCaption}" Margin="0" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Border Style="{StaticResource KpiDivider}" />
+                    <StackPanel Style="{StaticResource KpiTile}">
+                        <TextBlock Text="MESH LINKS" Style="{StaticResource KpiLabel}" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="LinksValue" Text="--" Style="{StaticResource HeaderKpiValue}" />
+                            <TextBlock x:Name="LinksTotal" Style="{StaticResource KpiUnit}" />
+                        </StackPanel>
+                        <TextBlock x:Name="LinksCaption" Text="" Style="{StaticResource KpiCaption}" Margin="0,3,0,0" />
+                    </StackPanel>
+
+                    <Border Style="{StaticResource KpiDivider}" />
+                    <StackPanel Style="{StaticResource KpiTile}" Margin="22,0,0,0">
+                        <TextBlock Text="MST POWER COST" Style="{StaticResource KpiLabel}" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="CostValue" Text="--" Style="{StaticResource HeaderKpiValue}" />
+                            <TextBlock Text="mW" Style="{StaticResource KpiUnit}" />
+                        </StackPanel>
+                        <TextBlock x:Name="CostCaption" Text="" Style="{StaticResource KpiCaption}" Margin="0,3,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="330" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="350" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ============ Mesh nodes: search + list ============ -->
+                    <Border Grid.Column="0" Style="{StaticResource StreamCard}" VerticalAlignment="Top">
+                        <StackPanel Margin="18,20,18,12">
+                            <Grid Margin="0,0,0,14">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Mesh nodes" Style="{StaticResource CardTitle}" />
+                                    <TextBlock x:Name="NodeCountText" Style="{StaticResource CardCount}" />
+                                </StackPanel>
+                                <Button x:Name="ClearFiltersButton" Content="Clear filters" Style="{StaticResource LinkButton}"
+                                        FontSize="12.5" HorizontalAlignment="Right" Click="OnClearFiltersClick" IsEnabled="False" />
+                            </Grid>
+
+                            <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="8" Background="White">
+                                <Grid>
+                                    <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" FontSize="12.5" Foreground="{StaticResource TextSecondary}"
+                                               HorizontalAlignment="Left" Margin="14,0,0,0" IsHitTestVisible="False" />
+                                    <TextBox x:Name="SearchBox" BorderThickness="0" Background="Transparent" Padding="36,10,12,10"
+                                             FontSize="13.5" VerticalContentAlignment="Center" TextChanged="OnSearchTextChanged" />
+                                    <TextBlock x:Name="SearchPlaceholder" Text="Search MAC, node ID or name..."
+                                               IsHitTestVisible="False" Foreground="{StaticResource TextMuted}"
+                                               Margin="38,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                                </Grid>
+                            </Border>
+
+                            <ListBox x:Name="NodeList" BorderThickness="0" Background="Transparent" Margin="0,14,0,0"
+                                     ItemContainerStyle="{StaticResource NodeListItem}"
+                                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     SelectionChanged="OnNodeSelectionChanged">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="12,11,12,11">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <Ellipse Width="9" Height="9" Fill="{Binding StatusBrush}" VerticalAlignment="Center" Margin="0,0,12,0" />
+
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" FontSize="14"
+                                                       Foreground="{StaticResource TextPrimary}" />
+
+                                            <TextBlock Grid.Column="2" Text="{Binding HopsText}" FontSize="13" Foreground="{Binding HopsBrush}"
+                                                       VerticalAlignment="Center" Margin="12,0,0,0" />
+
+                                            <!-- The id and MAC only show on the selected row -->
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Detail}"
+                                                       FontFamily="{StaticResource MonoFont}" FontSize="11" Foreground="{StaticResource TextSecondary}"
+                                                       Margin="0,4,0,0" TextWrapping="Wrap"
+                                                       Visibility="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}, Converter={StaticResource BoolToVisibility}}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ============ Right column: route to gateway ============ -->
+                    <StackPanel Grid.Column="2" Margin="16,0,0,0">
+                        <Border Style="{StaticResource StreamCard}">
+                            <StackPanel Margin="20,20,20,18">
+                                <Grid>
+                                    <TextBlock Text="Route to gateway" Style="{StaticResource CardTitle}" />
+                                    <Button x:Name="OpenInStreamButton" Content="Open in Command Stream" Style="{StaticResource LinkButton}"
+                                            FontSize="12" HorizontalAlignment="Right" Click="OnOpenInStreamClick" />
+                                </Grid>
+
+                                <Border Background="{StaticResource NeutralSoft}" CornerRadius="6" Padding="14,10" Margin="0,14,0,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="RouteName" Text="--" FontWeight="SemiBold" FontSize="14.5"
+                                                   Foreground="{StaticResource TextPrimary}" />
+                                        <TextBlock x:Name="RouteDetail" Text="" FontFamily="{StaticResource MonoFont}" FontSize="11.5"
+                                                   Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+
+                                <ItemsControl x:Name="RouteList" Margin="0,12,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid MinHeight="52">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="22" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Marker on a vertical line: the line runs up and down from the dot unless this is an end of the route -->
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="*" />
+                                                        <RowDefinition Height="*" />
+                                                    </Grid.RowDefinitions>
+                                                    <Rectangle Width="2" Fill="{StaticResource StatusAmberDot}" HorizontalAlignment="Center"
+                                                               Visibility="{Binding HasLineAbove, Converter={StaticResource BoolToVisibility}}" />
+                                                    <Rectangle Grid.Row="1" Width="2" Fill="{StaticResource StatusAmberDot}" HorizontalAlignment="Center"
+                                                               Visibility="{Binding HasLineBelow, Converter={StaticResource BoolToVisibility}}" />
+                                                    <Ellipse Grid.RowSpan="2" Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Fill="{Binding MarkerFill}" Stroke="{StaticResource StatusAmberDot}" StrokeThickness="2.5" />
+                                                </Grid>
+
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,6,8,6">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13.5"
+                                                               Foreground="{StaticResource TextPrimary}" />
+                                                    <TextBlock Text="{Binding Detail}" FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                                               Foreground="{StaticResource TextSecondary}" Margin="0,2,0,0" />
+                                                </StackPanel>
+
+                                                <Border Grid.Column="2" Background="{StaticResource InsightSoft}" CornerRadius="9" Padding="8,2"
+                                                        VerticalAlignment="Center"
+                                                        Visibility="{Binding HasCost, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="{Binding CostText}" Style="{StaticResource TagText}" FontSize="11"
+                                                               Foreground="{StaticResource InsightText}" />
+                                                </Border>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <Border Height="1" Background="{StaticResource CardBorder}" Margin="0,8,0,12" />
+                                <Grid>
+                                    <TextBlock x:Name="RouteTotalLabel" Text="Total (MST path)" Style="{StaticResource MutedText}" />
+                                    <TextBlock x:Name="RouteTotal" Text="--" FontFamily="{StaticResource MonoFont}" FontWeight="SemiBold"
+                                               FontSize="13" Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <!-- The same node routed three ways: the spanning tree (listed above), fewest hops, least power -->
+                                <TextBlock x:Name="RouteOptionsTitle" Text="ROUTE OPTIONS" Style="{StaticResource EyebrowText}" Margin="0,16,0,2"
+                                           Visibility="Collapsed" />
+                                <ItemsControl x:Name="RouteOptionList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,6,0,0">
+                                                <TextBlock Text="{Binding Label}" FontSize="12.5" Foreground="{StaticResource TextPrimary}" />
+                                                <TextBlock Text="{Binding Detail}" FontFamily="{StaticResource MonoFont}" FontSize="12"
+                                                           FontWeight="SemiBold" Foreground="{Binding DetailBrush}" HorizontalAlignment="Right" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <TextBlock x:Name="RouteNote" Style="{StaticResource MutedText}" FontSize="11.5" TextWrapping="Wrap"
+                                           LineHeight="17" Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
