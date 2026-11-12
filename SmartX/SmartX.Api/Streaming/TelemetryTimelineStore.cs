@@ -22,6 +22,21 @@ namespace SmartX.Api.Streaming
         // About 5.5 hours at one reading per four seconds, so a two-hour history query is realistic.
         public const int MaxPointsPerDevice = 5000;
 
+        private const int SeedReadingsPerDevice = 4000;
+        private static readonly TimeSpan SeedSpacing = TimeSpan.FromSeconds(4);
+        private static readonly TimeSpan SeedGap = TimeSpan.FromMinutes(10);
+
+        // Baseline, swing and whether the node is an actuator, for each of the fifteen fleet nodes.
+        private static readonly (string Id, double Baseline, double Swing, bool Actuator)[] SeedProfiles =
+        [
+            ("ESP32-ENV-01", 52, 6, false), ("ESP32-ENV-02", 57, 6, false), ("ESP32-ENV-03", 49, 6, false),
+            ("ESP32-PWR-01", 150, 20, false), ("ESP32-PWR-02", 165, 20, false), ("ESP32-PWR-03", 140, 20, false),
+            ("ESP32-SOIL-01", 55, 8, false), ("ESP32-SOIL-02", 40, 12, false), ("ESP32-TMP-01", 24, 3, false),
+            ("ESP32-ACT-01", 0, 0, true), ("ESP32-ACT-02", 0, 0, true),
+            ("ESP32-PMP-01", 0, 0, true), ("ESP32-PMP-02", 0, 0, true),
+            ("ESP32-VLV-01", 0, 0, true), ("ESP32-VLV-02", 0, 0, true)
+        ];
+
         private readonly Lock _gate = new();
         private readonly Dictionary<string, AvlTree<TimelineKey, double>> _timelines = new(DeviceIdentifier.Comparer);
 
@@ -154,6 +169,35 @@ namespace SmartX.Api.Streaming
                 CountFor(device.Id));
 
             return (timeline, visited, height);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Back-fills a few hours of readings for each fleet node so the history card has something to
+        /// query from the first second. It ends ten minutes before 'nowUtc', clear of the live feed.
+        /// </summary>
+        public void SeedHistory(DateTimeOffset nowUtc)
+        {
+            var random = new Random(42);
+            var end = nowUtc - SeedGap;
+
+            foreach (var (id, baseline, swing, actuator) in SeedProfiles)
+            {
+                for (int i = 0; i < SeedReadingsPerDevice; i++)
+                {
+                    var at = end - SeedSpacing * (SeedReadingsPerDevice - 1 - i);
+
+                    // A slow wave plus a little noise. Actuators just switch on and off with the wave.
+                    double wave = Math.Sin(i / 150.0 + id.Length);
+                    double value = actuator
+                        ? (wave > 0 ? 1 : 0)
+                        : baseline + swing * wave + (random.NextDouble() - 0.5) * swing * 0.1;
+
+                    // Negative sequences keep these keys unique and ahead of any live reading's.
+                    Append(id, at, i - SeedReadingsPerDevice, value);
+                }
+            }
         }
         //----------------------------------------------------------//
     }

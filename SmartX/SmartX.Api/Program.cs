@@ -86,4 +86,7 @@ app.MapGet("/", () => Results.Ok(new { service = "Smart-X Data Ingestion Gateway
 // Give the suggestion engine a few days of mock operator history to learn from.
 OperatorHistorySeeder.Seed(app.Services.GetRequiredService<ActionRecommendationEngine>(), DateTimeOffset.UtcNow);
 
+// A few hours of back-filled readings, so the Network Topology history card has something to query.
+app.Services.GetRequiredService<TelemetryTimelineStore>().SeedHistory(DateTimeOffset.UtcNow);
+
 app.Run();
