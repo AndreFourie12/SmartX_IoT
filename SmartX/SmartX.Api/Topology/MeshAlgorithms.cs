@@ -160,6 +160,26 @@ namespace SmartX.Api.Topology
         //----------------------------------------------------------//
 
 
+        /// <summary>
+        /// Follows the parent map from a node up to the root and returns the ids on the way, starting
+        /// with the node itself. A node with no parent (the root, or one that could not be reached)
+        /// comes back as a path of just itself.
+        /// </summary>
+        public static List<string> RouteTo(Dictionary<string, string> parent, string node)
+        {
+            var path = new List<string> { node };
+
+            while (parent.TryGetValue(node, out var next))
+            {
+                path.Add(next);
+                node = next;
+            }
+
+            return path;
+        }
+        //----------------------------------------------------------//
+
+
         private static void QueueLinks(MeshGraph graph, string from, HashSet<string> inTree, Func<string, bool> isDown, PriorityQueue<(string From, string To), double> queue)
         {
             foreach (var link in graph.LinksOf(from))
