@@ -114,6 +114,48 @@ namespace SmartX.Api.Streaming
                 CountFor(device.Id));
         }
         //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// The same DTO as BuildTimeline, for any window, plus how many tree nodes the query visited and
+        /// the tree's height - the evidence that the range query did not scan everything.
+        /// </summary>
+        public (TimelineDto Timeline, int NodesVisited, int TreeHeight) BuildRange(DeviceSnapshot device, DateTimeOffset fromUtc, DateTimeOffset toUtc)
+        {
+            var found = new List<KeyValuePair<TimelineKey, double>>();
+            int visited = 0;
+            int height = 0;
+
+            lock (_gate)
+            {
+                if (_timelines.TryGetValue(device.Id, out var tree))
+                {
+                    visited = tree.Range(new TimelineKey(fromUtc, long.MinValue), new TimelineKey(toUtc, long.MaxValue), found);
+                    height = tree.Height;
+                }
+            }
+
+            var points = found
+                .Select(pair => new TimelinePointDto(
+                    pair.Key.TimestampUtc,
+                    pair.Value,
+                    LiveDeviceRegistry.FormatValue(device.Category, pair.Value) ?? string.Empty))
+                .ToList();
+
+            var timeline = new TimelineDto(
+                device.Id,
+                device.DisplayName,
+                device.Category,
+                device.Category.Unit(),
+                fromUtc,
+                toUtc,
+                points,
+                Shared.Streaming.TelemetryRules.BandFor(device.Category),
+                CountFor(device.Id));
+
+            return (timeline, visited, height);
+        }
+        //----------------------------------------------------------//
     }
 }
 
