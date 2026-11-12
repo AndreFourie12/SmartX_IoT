@@ -3,7 +3,7 @@ using SmartX.Shared.Models;
 namespace SmartX.Api.Topology
 {
     /// <summary>
-    /// One ESP32 node in the mesh. X and Y are its position on the page's 900 x 540 drawing area.
+    /// One ESP32 node in the mesh. X and Y are its position on the page's 1100 x 460 drawing area.
     /// </summary>
     public sealed record MeshNode(string Id, string Name, string Mac, double X, double Y);
     //----------------------------------------------------------//

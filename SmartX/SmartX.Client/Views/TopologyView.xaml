@@ -219,6 +219,45 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- ============ Centre: the mesh drawn from the snapshot ============ -->
+                    <Border Grid.Column="1" Style="{StaticResource StreamCard}" Margin="16,0,0,0" VerticalAlignment="Top">
+                        <StackPanel Margin="22,20,22,18">
+                            <StackPanel>
+                                <TextBlock Text="Mesh topology" Style="{StaticResource CardTitle}" />
+                                <TextBlock x:Name="MeshSubtitle" Style="{StaticResource MutedText}" Margin="0,4,0,0" />
+                            </StackPanel>
+
+                            <!-- Positions come from the gateway for a 1100 x 460 drawing area; the Viewbox scales it to fit -->
+                            <Border Background="{StaticResource HoverGrey}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
+                                    CornerRadius="8" Margin="0,16,0,0" Padding="8">
+                                <Viewbox Stretch="Uniform">
+                                    <Canvas x:Name="MeshCanvas" Width="1100" Height="460" />
+                                </Viewbox>
+                            </Border>
+
+                            <WrapPanel Margin="0,14,0,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,22,6">
+                                    <Rectangle Width="24" Height="2" Fill="{StaticResource TextMuted}" Opacity="0.6" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Standby link" Style="{StaticResource MutedText}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,22,6">
+                                    <Rectangle Width="24" Height="3" Fill="{StaticResource AccentBlue}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="MST backbone (cost in mW)" Style="{StaticResource MutedText}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,22,6">
+                                    <Rectangle Width="24" Height="4" Fill="{StaticResource StatusAmberDot}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Selected route" Style="{StaticResource MutedText}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,22,6">
+                                    <Line X1="0" X2="24" Y1="1" Y2="1" Stroke="{StaticResource StatusRed}" StrokeThickness="2"
+                                          StrokeDashArray="3,2" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Link to offline node" Style="{StaticResource MutedText}" />
+                                </StackPanel>
+                            </WrapPanel>
+                            <TextBlock Text="Number in a node = hops to gateway" Style="{StaticResource MutedText}" FontSize="12" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+
                     <!-- ============ Right column: route to gateway ============ -->
                     <StackPanel Grid.Column="2" Margin="16,0,0,0">
                         <Border Style="{StaticResource StreamCard}">

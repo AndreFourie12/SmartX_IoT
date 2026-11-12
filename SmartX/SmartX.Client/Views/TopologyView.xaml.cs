@@ -133,6 +133,7 @@ namespace SmartX.Client.Views
 
                     var route = _selectedId is null ? null : await App.ApiClient.GetRouteAsync(_selectedId);
                     RenderRoute(route);
+                    DrawMesh(route);
 
                     StatusText.Text = _subtitle;
                 }
@@ -341,6 +342,124 @@ namespace SmartX.Client.Views
 
 
         private static string Hops(int count) => count == 1 ? "1 hop" : $"{count} hops";
+        //----------------------------------------------------------//
+
+
+
+        // ================================ The mesh canvas ================================ //
+
+        /// <summary>
+        /// Redraws the whole mesh from the latest snapshot. At sixteen nodes that is cheap, and it means
+        /// the canvas can never disagree with the data. Layers are drawn back to front: standby links,
+        /// the spanning tree with each link's cost, the selected node's route, then links to a down node.
+        /// </summary>
+        private void DrawMesh(RouteDto? route)
+        {
+            MeshCanvas.Children.Clear();
+
+            if (_snapshot is null)
+                return;
+
+            var nodes = _snapshot.Nodes.ToDictionary(node => node.Id, StringComparer.OrdinalIgnoreCase);
+            var routeLinks = RouteKeys(route);
+            var treeLinks = _snapshot.Links.Where(link => link.State == MeshLinkState.Mst).ToList();
+
+            foreach (var link in _snapshot.Links.Where(link => link.State == MeshLinkState.Standby))
+                AddLink(nodes[link.From], nodes[link.To], Palette.Get("TextMuted"), 1.6, opacity: 0.6);
+
+            foreach (var link in treeLinks)
+                AddLink(nodes[link.From], nodes[link.To], Palette.Get("AccentBlue"), 3);
+
+            foreach (var link in treeLinks.Where(link => routeLinks.Contains(LinkKey(link.From, link.To))))
+                AddLink(nodes[link.From], nodes[link.To], Palette.Get("StatusAmberDot"), 5);
+
+            foreach (var link in treeLinks)
+                AddCostChip(nodes[link.From], nodes[link.To], link.CostMw);
+
+            foreach (var link in _snapshot.Links.Where(link => link.State == MeshLinkState.Down))
+                AddLink(nodes[link.From], nodes[link.To], Palette.Get("StatusRed"), 1.6, dashed: true);
+
+            var down = _snapshot.Nodes.Count(node => node.Status == MeshNodeStatus.Down);
+            MeshSubtitle.Text = down == 0
+                ? $"{_snapshot.Nodes.Count} nodes · {_snapshot.LinksTotal} links"
+                : $"{_snapshot.Nodes.Count} nodes · {_snapshot.LinksTotal} links · {_snapshot.LinksTotal - _snapshot.LinksActive} lost to the offline node{(down == 1 ? "" : "s")}";
+        }
+        //----------------------------------------------------------//
+
+
+        private void AddLink(MeshNodeDto from, MeshNodeDto to, Brush stroke, double thickness, bool dashed = false, double opacity = 1)
+        {
+            var line = new System.Windows.Shapes.Line
+            {
+                X1 = from.X, Y1 = from.Y, X2 = to.X, Y2 = to.Y,
+                Stroke = stroke,
+                StrokeThickness = thickness,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                Opacity = opacity,
+                IsHitTestVisible = false
+            };
+
+            if (dashed)
+                line.StrokeDashArray = [3, 2.5];
+
+            MeshCanvas.Children.Add(line);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// A small label at the middle of a tree link showing what one packet costs across it.
+        /// </summary>
+        private void AddCostChip(MeshNodeDto from, MeshNodeDto to, double costMw)
+        {
+            var chip = new Border
+            {
+                Width = 28,
+                Height = 15,
+                CornerRadius = new CornerRadius(7.5),
+                Background = Palette.Get("CardBackground"),
+                BorderBrush = Palette.Get("SelectedRowBorder"),
+                BorderThickness = new Thickness(1),
+                IsHitTestVisible = false,
+                Child = new TextBlock
+                {
+                    Text = costMw.ToString("F1"),
+                    FontSize = 9.5,
+                    Foreground = Palette.Get("AccentBlue"),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            };
+
+            Canvas.SetLeft(chip, (from.X + to.X) / 2 - chip.Width / 2);
+            Canvas.SetTop(chip, (from.Y + to.Y) / 2 - chip.Height / 2);
+            MeshCanvas.Children.Add(chip);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// The links a route walks along, as pairs that read the same whichever way round they are written.
+        /// </summary>
+        private static HashSet<(string, string)> RouteKeys(RouteDto? route)
+        {
+            var keys = new HashSet<(string, string)>();
+
+            if (route is not null)
+            {
+                for (int i = 0; i < route.Path.Count - 1; i++)
+                    keys.Add(LinkKey(route.Path[i].Id, route.Path[i + 1].Id));
+            }
+
+            return keys;
+        }
+
+
+        private static (string, string) LinkKey(string a, string b) =>
+            string.Compare(a, b, StringComparison.OrdinalIgnoreCase) <= 0
+                ? (a.ToUpperInvariant(), b.ToUpperInvariant())
+                : (b.ToUpperInvariant(), a.ToUpperInvariant());
         //----------------------------------------------------------//
 
 

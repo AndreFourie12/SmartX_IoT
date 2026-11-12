@@ -11,22 +11,22 @@ namespace SmartX.Api.Topology
         // Listed in MAC order: the gateway is ...:4C:00, then 01 to 0F down this list.
         private static readonly (string Id, string Name, double X, double Y)[] NodeRows =
         [
-            ("GW-01", "Gateway", 450, 62),
-            ("ESP32-ENV-01", "Climate Node 1", 215, 150),
-            ("ESP32-ACT-01", "Relay 1", 95, 215),
-            ("ESP32-PWR-01", "Smart Meter 1", 205, 280),
-            ("ESP32-ENV-02", "Climate Node 2", 335, 235),
-            ("ESP32-ACT-02", "Relay 2", 320, 345),
-            ("ESP32-PWR-02", "Smart Meter 2", 175, 390),
-            ("ESP32-ENV-03", "Climate Node 3", 95, 480),
-            ("ESP32-PWR-03", "Smart Meter 3", 250, 485),
-            ("ESP32-SOIL-01", "Moisture Sensor A", 590, 170),
-            ("ESP32-PMP-01", "Pump A", 745, 150),
-            ("ESP32-VLV-01", "Valve 1", 650, 285),
-            ("ESP32-SOIL-02", "Moisture Sensor B", 810, 380),
-            ("ESP32-PMP-02", "Pump B", 665, 420),
-            ("ESP32-VLV-02", "Valve 2", 540, 350),
-            ("ESP32-TMP-01", "Greenhouse Temp", 775, 495)
+            ("GW-01", "Gateway", 563, 46),
+            ("ESP32-ENV-01", "Climate Node 1", 252, 120),
+            ("ESP32-ACT-01", "Relay 1", 94, 171),
+            ("ESP32-PWR-01", "Smart Meter 1", 237, 226),
+            ("ESP32-ENV-02", "Climate Node 2", 410, 189),
+            ("ESP32-ACT-02", "Relay 2", 389, 280),
+            ("ESP32-PWR-02", "Smart Meter 2", 202, 317),
+            ("ESP32-ENV-03", "Climate Node 3", 94, 392),
+            ("ESP32-PWR-03", "Smart Meter 3", 299, 396),
+            ("ESP32-SOIL-01", "Moisture Sensor A", 746, 135),
+            ("ESP32-PMP-01", "Pump A", 948, 120),
+            ("ESP32-VLV-01", "Valve 1", 821, 232),
+            ("ESP32-SOIL-02", "Moisture Sensor B", 895, 309),
+            ("ESP32-PMP-02", "Pump B", 778, 348),
+            ("ESP32-VLV-02", "Valve 2", 656, 285),
+            ("ESP32-TMP-01", "Greenhouse Temp", 863, 404)
         ];
 
         private static readonly (string From, string To, double CostMw)[] LinkRows =
