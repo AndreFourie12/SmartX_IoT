@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using SmartX.Client.Navigation;
 using SmartX.Client.ViewModels;
@@ -28,6 +30,9 @@ namespace SmartX.Client.Views
         private readonly DispatcherTimer _pollTimer = new() { Interval = TimeSpan.FromSeconds(3) };
         private readonly ObservableCollection<NodeRowViewModel> _rows = [];
         private readonly string _subtitle;
+
+        // The canvas colour at 80% opacity: lets a label sit over a link without hiding it completely.
+        private static readonly Brush LabelBackdrop = new SolidColorBrush(Color.FromArgb(0xCC, 0xF4, 0xF6, 0xF9));
 
         private TopologySnapshotDto? _snapshot;
         private string? _selectedId;
@@ -373,11 +378,15 @@ namespace SmartX.Client.Views
             foreach (var link in treeLinks.Where(link => routeLinks.Contains(LinkKey(link.From, link.To))))
                 AddLink(nodes[link.From], nodes[link.To], Palette.Get("StatusAmberDot"), 5);
 
-            foreach (var link in treeLinks)
-                AddCostChip(nodes[link.From], nodes[link.To], link.CostMw);
-
             foreach (var link in _snapshot.Links.Where(link => link.State == MeshLinkState.Down))
                 AddLink(nodes[link.From], nodes[link.To], Palette.Get("StatusRed"), 1.6, dashed: true);
+
+            foreach (var node in _snapshot.Nodes)
+                AddNode(node, selected: string.Equals(node.Id, _selectedId, StringComparison.OrdinalIgnoreCase));
+
+            // Costs go on last so a node's name never hides one.
+            foreach (var link in treeLinks)
+                AddCostChip(nodes[link.From], nodes[link.To], link.CostMw);
 
             var down = _snapshot.Nodes.Count(node => node.Status == MeshNodeStatus.Down);
             MeshSubtitle.Text = down == 0
@@ -435,6 +444,148 @@ namespace SmartX.Client.Views
             Canvas.SetLeft(chip, (from.X + to.X) / 2 - chip.Width / 2);
             Canvas.SetTop(chip, (from.Y + to.Y) / 2 - chip.Height / 2);
             MeshCanvas.Children.Add(chip);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// One node: a circle with its hop count inside, ringed green, amber or red for its status. The
+        /// gateway is a dark rounded square, and a down node shows a cross instead of a count. A selected
+        /// node gets a blue halo. Clicking any of them selects it.
+        /// </summary>
+        private void AddNode(MeshNodeDto node, bool selected)
+        {
+            const double Size = 46;
+            bool isGateway = node.Id == GatewayId;
+            bool isDown = node.Status == MeshNodeStatus.Down;
+
+            var group = new Grid { Width = Size, Height = Size, Background = Brushes.Transparent, Cursor = Cursors.Hand, Tag = node.Id };
+            group.MouseLeftButtonDown += OnMeshNodeClick;
+
+            if (selected)
+            {
+                group.Children.Add(new Ellipse
+                {
+                    Fill = Palette.Get("AccentBlueSoft"),
+                    Stroke = Palette.Get("AccentBlue"),
+                    StrokeThickness = 1.5
+                });
+            }
+
+            if (isGateway)
+            {
+                var square = new Border { Width = 36, Height = 36, CornerRadius = new CornerRadius(9), Background = Palette.Get("ShellDark") };
+                square.Child = new TextBlock
+                {
+                    Text = "",
+                    FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
+                    FontSize = 18,
+                    Foreground = Brushes.White,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                group.Children.Add(square);
+            }
+            else
+            {
+                var ring = node.Status switch
+                {
+                    MeshNodeStatus.Down => Palette.Get("StatusRed"),
+                    MeshNodeStatus.Warning => Palette.Get("StatusAmberDot"),
+                    _ => Palette.Get("StatusGreenDot")
+                };
+
+                var circle = new Ellipse
+                {
+                    Width = 32,
+                    Height = 32,
+                    Fill = Palette.Get(isDown ? "StatusRedSoft" : "CardBackground"),
+                    Stroke = ring,
+                    StrokeThickness = 3
+                };
+
+                if (isDown)
+                    circle.StrokeDashArray = [1.4, 1.1];
+
+                group.Children.Add(circle);
+                group.Children.Add(new TextBlock
+                {
+                    Text = isDown ? "" : node.Hops?.ToString() ?? "-",
+                    FontFamily = isDown ? new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets") : new FontFamily("Segoe UI"),
+                    FontSize = isDown ? 12 : 14,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = Palette.Get(isDown ? "StatusRed" : "TextPrimary"),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+
+            Canvas.SetLeft(group, node.X - Size / 2);
+            Canvas.SetTop(group, node.Y - Size / 2);
+            MeshCanvas.Children.Add(group);
+
+            AddNodeLabel(node, isGateway, isDown, selected);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// The name under a node (beside it for the gateway), with OFFLINE under the name of a down node.
+        /// </summary>
+        private void AddNodeLabel(MeshNodeDto node, bool isGateway, bool isDown, bool selected)
+        {
+            var text = new StackPanel { IsHitTestVisible = false };
+
+            text.Children.Add(new TextBlock
+            {
+                Text = isGateway ? $"Gateway {node.Id}" : node.Name,
+                FontSize = 12,
+                FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal,
+                Foreground = Palette.Get(selected ? "AccentBlue" : "TextPrimary"),
+                HorizontalAlignment = isGateway ? HorizontalAlignment.Left : HorizontalAlignment.Center
+            });
+
+            if (isDown)
+            {
+                text.Children.Add(new TextBlock
+                {
+                    Text = "OFFLINE",
+                    FontFamily = (FontFamily)FindResource("MonoFont"),
+                    FontSize = 9,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = Palette.Get("StatusRed"),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+            }
+
+            // A backing the colour of the canvas keeps the name readable where a link runs under it.
+            var label = new Border { Background = LabelBackdrop, CornerRadius = new CornerRadius(3), Padding = new Thickness(3, 0, 3, 0), Child = text, IsHitTestVisible = false };
+
+            if (isGateway)
+            {
+                Canvas.SetLeft(label, node.X + 26);
+                Canvas.SetTop(label, node.Y - 9);
+            }
+            else
+            {
+                label.Width = 130;
+                Canvas.SetLeft(label, node.X - 65);
+                Canvas.SetTop(label, node.Y + 20);
+            }
+
+            MeshCanvas.Children.Add(label);
+        }
+        //----------------------------------------------------------//
+
+
+        private void OnMeshNodeClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is not FrameworkElement { Tag: string id })
+                return;
+
+            _selectedId = id;
+            SelectRow(id);
+            _ = RefreshAsync();
         }
         //----------------------------------------------------------//
 
