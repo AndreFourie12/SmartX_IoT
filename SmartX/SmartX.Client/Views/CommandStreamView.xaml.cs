@@ -445,7 +445,7 @@ namespace SmartX.Client.Views
             {
                 DetailFooter.Text =
                     $"{timeline.Points.Count} readings in the last {_minutes} min · " +
-                    "read in timestamp order from the gateway's SortedDictionary, so late packets land in the right place";
+                    "read in timestamp order from the gateway's AVL tree, so late packets land in the right place";
                 DetailFooter.ToolTip = $"{timeline.TotalStored:N0} readings stored for this device";
 
                 if (_showLog)

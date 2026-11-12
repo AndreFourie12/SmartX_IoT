@@ -54,7 +54,7 @@ namespace SmartX.Api.Streaming
 
         /// <summary>
         /// Fits a trend line through each measuring device's recent readings, then runs the engine.
-        /// The fits read the SortedDictionary timelines, which hand the points back already in time order.
+        /// The fits read the AVL timelines, which hand the points back already in time order.
         /// </summary>
         public InsightReport Analyse(IReadOnlyList<DeviceSnapshot> devices, DateTimeOffset nowUtc)
         {

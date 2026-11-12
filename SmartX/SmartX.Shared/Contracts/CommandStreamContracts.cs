@@ -104,7 +104,7 @@ namespace SmartX.Shared.Contracts
 
     /// <summary>
     /// A device's timeline over a window, already in timestamp order because it is read straight
-    /// out of a SortedDictionary. Band carries the thresholds so the chart can shade them.
+    /// out of an AVL tree. Band carries the thresholds so the chart can shade them.
     /// </summary>
     public sealed record TimelineDto(
         string DeviceId,

@@ -10,7 +10,7 @@ namespace SmartX.Client.Controls
     /// The selected device's timeline: readings over the chosen window, with the warning and critical
     /// thresholds shaded so an operator can see at a glance how close a value is to an alarm.
     ///
-    /// The points arrive already in timestamp order - the API reads them out of a SortedDictionary - so
+    /// The points arrive already in timestamp order - the API reads them out of an AVL tree - so
     /// this only has to map each one to a pixel and draw a single path. No sorting, no per-point elements.
     /// Readings that land within a few pixels of each other are averaged into one point, so dense bursts
     /// stay readable instead of turning into vertical zigzags.

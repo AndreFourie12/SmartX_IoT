@@ -12,7 +12,7 @@ namespace SmartX.Api.Insights
     /// <summary>
     /// Ordinary least-squares regression over a timeline.
     /// The input has to be in time order for "the last value" and the window length to mean anything,
-    /// which is exactly what the SortedDictionary timeline guarantees.
+    /// which is exactly what the AVL timeline guarantees.
     /// </summary>
     public static class TrendAnalysis
     {

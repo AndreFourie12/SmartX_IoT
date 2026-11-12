@@ -1,3 +1,4 @@
+using SmartX.Shared.Collections;
 using SmartX.Shared.Contracts;
 using SmartX.Shared.Models;
 
@@ -6,11 +7,11 @@ namespace SmartX.Api.Streaming
     /// <summary>
     /// Per-device historical log, ordered by timestamp, behind the dashboard's timeline graph.
     ///
-    /// Each device gets a SortedDictionary&lt;TimelineKey, double&gt; - a red-black tree - so
+    /// Each device gets an AvlTree&lt;TimelineKey, double&gt; - a hand-written self-balancing tree - so
     /// readings stay in time order however they arrive. That matters because they do not arrive in
     /// order: a device that reconnects flushes its buffered readings with their original timestamps,
     /// and a jagged batch carries a window of past samples. Inserting is O(log n), and reading a window
-    /// back is a single in-order walk that stops as soon as it passes the end of the range, so the
+    /// back goes straight to the start of the range and stops at its end (O(log n + k)), so the
     /// client receives points already sorted and draws them as-is.
     ///
     /// Memory is bounded: once a device holds MaxPointsPerDevice readings, the oldest (the tree's
@@ -21,7 +22,7 @@ namespace SmartX.Api.Streaming
         public const int MaxPointsPerDevice = 1500;
 
         private readonly Lock _gate = new();
-        private readonly Dictionary<string, SortedDictionary<TimelineKey, double>> _timelines = new(DeviceIdentifier.Comparer);
+        private readonly Dictionary<string, AvlTree<TimelineKey, double>> _timelines = new(DeviceIdentifier.Comparer);
 
 
         /// <summary>
@@ -36,15 +37,15 @@ namespace SmartX.Api.Streaming
             {
                 if (!_timelines.TryGetValue(deviceId, out var timeline))
                 {
-                    timeline = new SortedDictionary<TimelineKey, double>();
+                    timeline = new AvlTree<TimelineKey, double>();
                     _timelines[deviceId] = timeline;
                 }
 
-                timeline[new TimelineKey(timestampUtc, sequence)] = value;
+                timeline.Add(new TimelineKey(timestampUtc, sequence), value);
 
-                // Evict the oldest. First() on a SortedDictionary walks to the leftmost node: O(log n).
+                // Evict the oldest: the tree's smallest key, found and removed in O(log n).
                 while (timeline.Count > MaxPointsPerDevice)
-                    timeline.Remove(timeline.Keys.First());
+                    timeline.RemoveMin();
             }
         }
         //----------------------------------------------------------//
@@ -52,7 +53,9 @@ namespace SmartX.Api.Streaming
 
         /// <summary>
         /// Every reading between two instants, oldest first.
-        /// The walk is in key order, so it can stop at the first key past the end of the range.
+        /// The tree skips whole subtrees outside the range, so a late window is as cheap as an early one.
+        /// The bounds use the smallest and largest possible sequence so that a reading stamped exactly at
+        /// 'from' or 'to' is still included.
         /// </summary>
         public List<(DateTimeOffset TimestampUtc, double Value)> Range(string deviceId, DateTimeOffset fromUtc, DateTimeOffset toUtc)
         {
@@ -63,16 +66,11 @@ namespace SmartX.Api.Streaming
                 if (!_timelines.TryGetValue(deviceId, out var timeline))
                     return points;
 
-                foreach (var (key, value) in timeline)
-                {
-                    if (key.TimestampUtc < fromUtc)
-                        continue;
+                var found = new List<KeyValuePair<TimelineKey, double>>();
+                timeline.Range(new TimelineKey(fromUtc, long.MinValue), new TimelineKey(toUtc, long.MaxValue), found);
 
-                    if (key.TimestampUtc > toUtc)
-                        break;
-
-                    points.Add((key.TimestampUtc, value));
-                }
+                foreach (var pair in found)
+                    points.Add((pair.Key.TimestampUtc, pair.Value));
 
                 return points;
             }
