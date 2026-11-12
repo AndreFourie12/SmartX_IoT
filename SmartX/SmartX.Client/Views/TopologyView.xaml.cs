@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -27,6 +28,13 @@ namespace SmartX.Client.Views
         private const string GatewayId = "GW-01";
         private const string DefaultNodeId = "ESP32-SOIL-02";
 
+        // How the From and To boxes show a time, and the other spellings they accept.
+        private const string StampFormat = "dd MMM yyyy '·' HH:mm:ss";
+        private static readonly string[] StampFormats =
+        [
+            StampFormat, "dd MMM yyyy HH:mm:ss", "dd MMM yyyy HH:mm", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "HH:mm:ss", "HH:mm"
+        ];
+
         private readonly INavigator _navigator;
         private readonly DispatcherTimer _pollTimer = new() { Interval = TimeSpan.FromSeconds(3) };
         private readonly ObservableCollection<NodeRowViewModel> _rows = [];
@@ -35,6 +43,25 @@ namespace SmartX.Client.Views
         // The canvas colour at 80% opacity: lets a label sit over a link without hiding it completely.
         private static readonly Brush LabelBackdrop = new SolidColorBrush(Color.FromArgb(0xCC, 0xF4, 0xF6, 0xF9));
 
+        // Which side of its circle each node's name sits on, chosen so the name clears the links around it.
+        // Any node not listed here gets its name underneath.
+        private enum LabelSide { Below, Above, Left, Right }
+
+        private static readonly Dictionary<string, LabelSide> LabelSides = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ESP32-ENV-01"] = LabelSide.Above,
+            ["ESP32-ACT-01"] = LabelSide.Left,
+            ["ESP32-PWR-01"] = LabelSide.Left,
+            ["ESP32-ENV-02"] = LabelSide.Right,
+            ["ESP32-PWR-02"] = LabelSide.Left,
+            ["ESP32-SOIL-01"] = LabelSide.Left,
+            ["ESP32-PMP-01"] = LabelSide.Right,
+            ["ESP32-VLV-01"] = LabelSide.Right,
+            ["ESP32-SOIL-02"] = LabelSide.Right,
+            ["ESP32-TMP-01"] = LabelSide.Right
+        };
+
+        private string _visitKey = string.Empty;
         private TopologySnapshotDto? _snapshot;
         private FailureResultDto? _lastFailure;
         private string? _selectedId;
@@ -51,6 +78,11 @@ namespace SmartX.Client.Views
             _navigator = navigator;
             _subtitle = StatusText.Text;
             NodeList.ItemsSource = _rows;
+
+            // The history query starts on the demo sensor and the last quarter hour.
+            HistorySensorBox.Text = DefaultNodeId;
+            HistoryFromBox.Text = DateTime.Now.AddMinutes(-15).ToString(StampFormat, CultureInfo.InvariantCulture);
+            HistoryToBox.Text = DateTime.Now.ToString(StampFormat, CultureInfo.InvariantCulture);
 
             _pollTimer.Tick += async (_, _) => await RefreshAsync();
         }
@@ -260,18 +292,13 @@ namespace SmartX.Client.Views
 
             if (route is null)
             {
-                RouteName.Text = "--";
-                RouteDetail.Text = string.Empty;
                 RouteList.ItemsSource = null;
                 RouteOptionList.ItemsSource = null;
-                RouteOptionsTitle.Visibility = Visibility.Collapsed;
-                RouteTotal.Text = "--";
+                CompareHeader.Visibility = Visibility.Collapsed;
+                RouteHops.Text = RoutePower.Text = RouteVia.Text = "--";
                 RouteNote.Text = "Pick a node to see how its packets reach the gateway.";
                 return;
             }
-
-            RouteName.Text = route.Name;
-            RouteDetail.Text = $"{route.NodeId}  ·  {route.Mac}";
 
             if (!route.Reachable)
             {
@@ -279,9 +306,9 @@ namespace SmartX.Client.Views
 
                 RouteList.ItemsSource = null;
                 RouteOptionList.ItemsSource = null;
-                RouteOptionsTitle.Visibility = Visibility.Collapsed;
-                RouteTotalLabel.Text = "Total";
-                RouteTotal.Text = "no route";
+                CompareHeader.Visibility = Visibility.Collapsed;
+                RouteHops.Text = RoutePower.Text = "–";
+                RouteVia.Text = "No route";
                 RouteNote.Text = offline
                     ? $"{route.Name} is offline, so it has no route to the gateway."
                     : $"{route.Name} is cut off: every path to the gateway runs through a node that is down.";
@@ -295,19 +322,24 @@ namespace SmartX.Client.Views
                 var hop = route.Path[i];
                 bool isGateway = i == route.Path.Count - 1 && route.Path.Count > 1;
 
+                // The first stop is the node itself, filled amber; the gateway is dark; the stops between are rings.
                 stops.Add(new RouteStopRow(
                     hop.Name,
-                    isGateway ? $"{hop.Id}  ·  root" : hop.Id,
-                    $"+{hop.CostMw:F1} mW",
+                    i == 0 ? FontWeights.Bold : FontWeights.Normal,
+                    $"{hop.CostMw:F1} mW",
                     i > 0,
+                    i == 0,
                     i > 0,
                     i < route.Path.Count - 1,
-                    isGateway ? Palette.Get("ShellDark") : Palette.Get("CardBackground")));
+                    i == 0 ? Palette.Get("StatusAmberDot") : isGateway ? Palette.Get("ShellDark") : Palette.Get("CardBackground"),
+                    isGateway ? Palette.Get("ShellDark") : Palette.Get("StatusAmberDot"),
+                    $"{hop.Name}  ·  {hop.Id}  ·  {hop.Mac}"));
             }
 
             RouteList.ItemsSource = stops;
-            RouteTotalLabel.Text = "Total (MST path)";
-            RouteTotal.Text = $"{Hops(route.TotalHops)}  ·  {route.TotalCostMw:F1} mW";
+            RouteHops.Text = route.TotalHops.ToString();
+            RoutePower.Text = route.TotalCostMw.ToString("F1");
+            RouteVia.Text = route.Path.Count > 1 ? "MST route" : "Gateway";
 
             RenderRouteOptions(route);
         }
@@ -317,13 +349,13 @@ namespace SmartX.Client.Views
         /// <summary>
         /// Lists the node's route three ways side by side: the spanning tree route shown above, the
         /// breadth-first route (fewest hops) and Dijkstra's route (least power). The cheapest in power is
-        /// shown in green. When the tree route is not that cheapest one, a line says why: the tree
-        /// minimises the power of the whole mesh, not of each node's own path.
+        /// shown in green and tagged. When the tree route is not that cheapest one, a line says why: the
+        /// tree minimises the power of the whole mesh, not of each node's own path.
         /// </summary>
         private void RenderRouteOptions(RouteDto route)
         {
             bool single = route.Path.Count <= 1;
-            RouteOptionsTitle.Visibility = single ? Visibility.Collapsed : Visibility.Visible;
+            CompareHeader.Visibility = single ? Visibility.Collapsed : Visibility.Visible;
 
             if (single)
             {
@@ -333,25 +365,25 @@ namespace SmartX.Client.Views
             }
 
             double best = Math.Min(route.TotalCostMw, Math.Min(route.FewestHopCostMw, route.LeastPowerCostMw));
+            double saving = route.TotalCostMw - route.LeastPowerCostMw;
 
-            RouteOptionRow Row(string label, int hops, double cost) =>
-                new(label, $"{Hops(hops)}  ·  {cost:F1} mW", Palette.Get(cost - best < 0.05 ? "StatusGreen" : "TextPrimary"));
+            RouteOptionRow Row(string label, string method, bool inUse, bool cheapest, int hops, double cost) =>
+                new(label, method, inUse, cheapest, hops.ToString(), $"{cost:F1} mW", Palette.Get(cost - best < 0.05 ? "StatusGreen" : "TextPrimary"));
+
+            // The tag only means something when the routes differ: three equal routes have no cheapest.
+            bool tag = Math.Max(route.TotalCostMw, route.FewestHopCostMw) - route.LeastPowerCostMw >= 0.05;
 
             RouteOptionList.ItemsSource = new List<RouteOptionRow>
             {
-                Row("MST route (above)", route.TotalHops, route.TotalCostMw),
-                Row("Fewest hops (BFS)", route.FewestHopPath.Count - 1, route.FewestHopCostMw),
-                Row("Least power (Dijkstra)", route.LeastPowerPath.Count - 1, route.LeastPowerCostMw)
+                Row("Spanning tree", "· MST", true, false, route.TotalHops, route.TotalCostMw),
+                Row("Fewest hops", "· BFS", false, false, route.FewestHopPath.Count - 1, route.FewestHopCostMw),
+                Row("Least power", "· Dijkstra", false, tag, route.LeastPowerPath.Count - 1, route.LeastPowerCostMw)
             };
 
-            RouteNote.Text = route.TotalCostMw - route.LeastPowerCostMw < 0.05
-                ? string.Empty
-                : $"The spanning tree minimises the power of the whole mesh, not of each node's own path, so {route.Name}'s cheapest route costs {route.TotalCostMw - route.LeastPowerCostMw:F1} mW less than its tree route.";
+            RouteNote.Text = saving < 0.05
+                ? $"The MST route is already the cheapest way for {route.Name}."
+                : $"Least power would save {saving:F1} mW for this node. The MST keeps the whole mesh cheapest instead.";
         }
-        //----------------------------------------------------------//
-
-
-        private static string Hops(int count) => count == 1 ? "1 hop" : $"{count} hops";
         //----------------------------------------------------------//
 
 
@@ -392,11 +424,6 @@ namespace SmartX.Client.Views
             // Costs go on last so a node's name never hides one.
             foreach (var link in treeLinks)
                 AddCostChip(nodes[link.From], nodes[link.To], link.CostMw);
-
-            var down = _snapshot.Nodes.Count(node => node.Status == MeshNodeStatus.Down);
-            MeshSubtitle.Text = down == 0
-                ? $"{_snapshot.Nodes.Count} nodes · {_snapshot.LinksTotal} links"
-                : $"{_snapshot.Nodes.Count} nodes · {_snapshot.LinksTotal} links · {_snapshot.LinksTotal - _snapshot.LinksActive} lost to the offline node{(down == 1 ? "" : "s")}";
         }
         //----------------------------------------------------------//
 
@@ -415,33 +442,174 @@ namespace SmartX.Client.Views
             var order = depthFirst ? _snapshot.DfsOrder : _snapshot.BfsOrder;
             var byId = _snapshot.Nodes.ToDictionary(node => node.Id, StringComparer.OrdinalIgnoreCase);
 
+            // The big figure and the bar: how much of the live mesh the search reached.
             int reached = order.Count(id => id != GatewayId);
-            ReachText.Inlines.Clear();
-            ReachText.Inlines.Add(new Run("Reached "));
-            ReachText.Inlines.Add(new Run($"{reached} of {_snapshot.NodesOnline}") { FontWeight = FontWeights.SemiBold });
-            ReachText.Inlines.Add(new Run(" live nodes"));
+            int live = _snapshot.NodesOnline;
+            ReachCount.Text = reached.ToString();
+            ReachSuffix.Text = $"of {live} live nodes reached";
+            ReachFill.Width = new GridLength(reached, GridUnitType.Star);
+            ReachRest.Width = new GridLength(Math.Max(live - reached, live == 0 ? 1 : 0), GridUnitType.Star);
 
-            var down = _snapshot.Nodes.Where(node => node.Status == MeshNodeStatus.Down).Select(node => $"{node.Name} ({node.Id})").ToList();
-            if (down.Count > 0)
+            // The line under the bar: what is down and what is cut off, or that nothing is.
+            var down = _snapshot.Nodes.Where(node => node.Status == MeshNodeStatus.Down).ToList();
+            var cutOff = _snapshot.UnreachableIds.Select(id => byId[id].Name).ToList();
+            var mono = (FontFamily)FindResource("MonoFont");
+
+            StateText.Inlines.Clear();
+
+            if (down.Count == 0 && cutOff.Count == 0)
             {
-                ReachText.Inlines.Add(new Run(" · "));
-                ReachText.Inlines.Add(new Run($"Down: {string.Join(", ", down)}") { FontWeight = FontWeights.SemiBold, Foreground = Palette.Get("StatusRedText") });
+                StateDot.Fill = Palette.Get("StatusGreenDot");
+                StateText.Inlines.Add(new Run("All nodes up") { FontWeight = FontWeights.SemiBold, Foreground = Palette.Get("StatusGreen") });
+            }
+            else
+            {
+                StateDot.Fill = Palette.Get(down.Count > 0 ? "StatusRed" : "StatusAmberDot");
+
+                if (down.Count > 0)
+                {
+                    StateText.Inlines.Add(new Run($"{down.Count} down") { FontWeight = FontWeights.SemiBold, Foreground = Palette.Get("StatusRedText") });
+                    StateText.Inlines.Add(new Run($"  {string.Join(", ", down.Select(node => node.Name))}"));
+
+                    if (down.Count == 1)
+                        StateText.Inlines.Add(new Run($"  {down[0].Id}") { FontFamily = mono, FontSize = 11.5, Foreground = Palette.Get("TextSecondary") });
+                }
+
+                if (cutOff.Count > 0)
+                {
+                    StateText.Inlines.Add(new Run($"{(down.Count > 0 ? "   " : "")}{cutOff.Count} cut off") { FontWeight = FontWeights.SemiBold, Foreground = Palette.Get("StatusAmber") });
+                    StateText.Inlines.Add(new Run($"  {string.Join(", ", cutOff)}"));
+                }
             }
 
-            if (_snapshot.UnreachableIds.Count > 0)
-            {
-                var cutOff = _snapshot.UnreachableIds.Select(id => byId[id].Name);
-                ReachText.Inlines.Add(new Run(" · "));
-                ReachText.Inlines.Add(new Run($"Cut off: {string.Join(", ", cutOff)}") { FontWeight = FontWeights.SemiBold, Foreground = Palette.Get("StatusAmber") });
-            }
+            StateText.ToolTip = StateText.Text;
 
-            string how = depthFirst ? "DFS (a stack) follows one branch to its end first" : "BFS (a queue) takes the nearest nodes first";
-            OrderText.Text = $"{how}: {string.Join(" → ", order.Select(id => id == GatewayId ? "Gateway" : byId[id].Name))}";
+            // The visit order, numbered. Only replaced when the order changes so the list keeps its scroll position.
+            OrderHint.Text = depthFirst ? "stack · deepest first" : "queue · nearest first";
+            string key = string.Join('|', order);
+
+            if (key != _visitKey)
+            {
+                _visitKey = key;
+                OrderList.ItemsSource = order
+                    .Select((id, index) => new VisitRow((index + 1).ToString(), id == GatewayId ? "Gateway" : byId[id].Name))
+                    .ToList();
+            }
         }
         //----------------------------------------------------------//
 
 
         private void OnTraversalChanged(object sender, RoutedEventArgs e) => RenderConnectivity();
+        //----------------------------------------------------------//
+
+
+
+        // ================================ Historical telemetry ================================ //
+
+        /// <summary>
+        /// Runs the range query on the gateway. It only runs when asked: the page does not poll history.
+        /// A time with no date means today, and times are read as local time.
+        /// </summary>
+        private async void OnRunQueryClick(object sender, RoutedEventArgs e)
+        {
+            string sensor = HistorySensorBox.Text.Trim();
+
+            if (sensor.Length == 0)
+            {
+                ShowHistoryError("Enter a sensor id or MAC address.");
+                return;
+            }
+
+            if (!TryParseStamp(HistoryFromBox.Text, out var from) || !TryParseStamp(HistoryToBox.Text, out var to))
+            {
+                ShowHistoryError("I can't read that time. Try 12 Nov 2026 · 08:24:00, 2026-11-12 08:24 or just 08:24:00 for today.");
+                return;
+            }
+
+            if (from > to)
+            {
+                ShowHistoryError("From must not be after To.");
+                return;
+            }
+
+            RunQueryButton.IsEnabled = false;
+
+            try
+            {
+                var result = await App.ApiClient.GetHistoryAsync(sensor, from, to);
+
+                if (result is not null)
+                    RenderHistory(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ShowHistoryError(ex.Message);
+            }
+            catch (Exception)
+            {
+                ShowHistoryError("Can't reach the gateway. Is SmartX.Api running?");
+            }
+            finally
+            {
+                RunQueryButton.IsEnabled = true;
+            }
+        }
+        //----------------------------------------------------------//
+
+
+        private void OnHistoryKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && RunQueryButton.IsEnabled)
+                OnRunQueryClick(sender, e);
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Draws the result: the chart, the table (newest first) and the caption that says how many tree
+        /// nodes the range query visited out of everything stored - the proof it did not scan them all.
+        /// </summary>
+        private void RenderHistory(TopologyHistoryDto result)
+        {
+            var timeline = result.Timeline;
+            bool sameDay = timeline.FromUtc.ToLocalTime().Date == timeline.ToUtc.ToLocalTime().Date;
+            string timeFormat = sameDay ? "HH:mm:ss" : "dd MMM HH:mm:ss";
+
+            HistoryError.Visibility = Visibility.Collapsed;
+            HistoryChart.Timeline = timeline;
+            HistoryValueColumn.Header = $"{timeline.Category.DisplayName()} {timeline.Unit}".Trim().ToUpperInvariant();
+
+            HistoryTable.ItemsSource = timeline.Points
+                .OrderByDescending(point => point.TimestampUtc)
+                .Select(point => new HistoryRow(point.TimestampUtc.ToLocalTime().ToString(timeFormat, CultureInfo.InvariantCulture), point.Display))
+                .ToList();
+
+            int count = timeline.Points.Count;
+            HistoryCaption.Text = count == 0
+                ? $"No readings in that window. The tree holds {timeline.TotalStored:N0} readings for {timeline.DisplayName}."
+                : $"{count:N0} reading{(count == 1 ? "" : "s")} in timestamp order, found by visiting {result.NodesVisited:N0} of {timeline.TotalStored:N0} tree nodes (tree height {result.TreeHeight}).";
+        }
+        //----------------------------------------------------------//
+
+
+        private void ShowHistoryError(string message)
+        {
+            HistoryError.Text = message;
+            HistoryError.Visibility = Visibility.Visible;
+        }
+
+
+        private static bool TryParseStamp(string text, out DateTimeOffset utc)
+        {
+            if (DateTime.TryParseExact(text.Trim(), StampFormats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var local))
+            {
+                utc = new DateTimeOffset(local).ToUniversalTime();
+                return true;
+            }
+
+            utc = default;
+            return false;
+        }
         //----------------------------------------------------------//
 
 
@@ -575,8 +743,8 @@ namespace SmartX.Client.Views
             }
 
             HopOverText.Inlines.Clear();
-            HopOverText.Inlines.Add(new Run("Hop-over") { FontWeight = FontWeights.Bold, Foreground = Palette.Get("InsightText") });
-            HopOverText.Inlines.Add(new Run($" · {failed.Name} is down, so {route.Name} now hops through {route.Path[1].Name}."));
+            HopOverText.Inlines.Add(new Run("Hop-over") { FontWeight = FontWeights.SemiBold });
+            HopOverText.Inlines.Add(new Run($" · {failed.Name} down, now via {route.Path[1].Name}"));
             HopOverNote.Visibility = Visibility.Visible;
         }
 
@@ -615,17 +783,18 @@ namespace SmartX.Client.Views
         {
             var chip = new Border
             {
-                Width = 28,
-                Height = 15,
-                CornerRadius = new CornerRadius(7.5),
-                Background = Palette.Get("CardBackground"),
+                Width = 34,
+                Height = 18,
+                CornerRadius = new CornerRadius(5),
+                Background = Palette.Get("AccentBlueSoft"),
                 BorderBrush = Palette.Get("SelectedRowBorder"),
                 BorderThickness = new Thickness(1),
                 IsHitTestVisible = false,
                 Child = new TextBlock
                 {
                     Text = costMw.ToString("F1"),
-                    FontSize = 9.5,
+                    FontFamily = (FontFamily)FindResource("MonoFont"),
+                    FontSize = 11,
                     Foreground = Palette.Get("AccentBlue"),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center
@@ -646,7 +815,7 @@ namespace SmartX.Client.Views
         /// </summary>
         private void AddNode(MeshNodeDto node, bool selected)
         {
-            const double Size = 46;
+            const double Size = 54;
             bool isGateway = node.Id == GatewayId;
             bool isDown = node.Status == MeshNodeStatus.Down;
 
@@ -665,12 +834,12 @@ namespace SmartX.Client.Views
 
             if (isGateway)
             {
-                var square = new Border { Width = 36, Height = 36, CornerRadius = new CornerRadius(9), Background = Palette.Get("ShellDark") };
+                var square = new Border { Width = 42, Height = 42, CornerRadius = new CornerRadius(9), Background = Palette.Get("ShellDark") };
                 square.Child = new TextBlock
                 {
                     Text = "",
                     FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-                    FontSize = 18,
+                    FontSize = 21,
                     Foreground = Brushes.White,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center
@@ -688,8 +857,8 @@ namespace SmartX.Client.Views
 
                 var circle = new Ellipse
                 {
-                    Width = 32,
-                    Height = 32,
+                    Width = 38,
+                    Height = 38,
                     Fill = Palette.Get(isDown ? "StatusRedSoft" : "CardBackground"),
                     Stroke = ring,
                     StrokeThickness = 3
@@ -703,7 +872,7 @@ namespace SmartX.Client.Views
                 {
                     Text = isDown ? "" : node.Hops?.ToString() ?? "-",
                     FontFamily = isDown ? new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets") : new FontFamily("Segoe UI"),
-                    FontSize = isDown ? 12 : 14,
+                    FontSize = isDown ? 14 : 17,
                     FontWeight = FontWeights.SemiBold,
                     Foreground = Palette.Get(isDown ? "StatusRed" : "TextPrimary"),
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -721,19 +890,28 @@ namespace SmartX.Client.Views
 
 
         /// <summary>
-        /// The name under a node (beside it for the gateway), with OFFLINE under the name of a down node.
+        /// The name beside a node, on the side that keeps clear of its links, with OFFLINE under the name
+        /// of a down node.
         /// </summary>
         private void AddNodeLabel(MeshNodeDto node, bool isGateway, bool isDown, bool selected)
         {
+            var side = isGateway ? LabelSide.Right : LabelSides.GetValueOrDefault(node.Id, LabelSide.Below);
+            var align = side switch
+            {
+                LabelSide.Right => HorizontalAlignment.Left,
+                LabelSide.Left => HorizontalAlignment.Right,
+                _ => HorizontalAlignment.Center
+            };
+
             var text = new StackPanel { IsHitTestVisible = false };
 
             text.Children.Add(new TextBlock
             {
                 Text = isGateway ? $"Gateway {node.Id}" : node.Name,
-                FontSize = 12,
+                FontSize = 14.5,
                 FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal,
                 Foreground = Palette.Get(selected ? "AccentBlue" : "TextPrimary"),
-                HorizontalAlignment = isGateway ? HorizontalAlignment.Left : HorizontalAlignment.Center
+                HorizontalAlignment = align
             });
 
             if (isDown)
@@ -742,28 +920,29 @@ namespace SmartX.Client.Views
                 {
                     Text = "OFFLINE",
                     FontFamily = (FontFamily)FindResource("MonoFont"),
-                    FontSize = 9,
+                    FontSize = 10.5,
                     FontWeight = FontWeights.Bold,
                     Foreground = Palette.Get("StatusRed"),
-                    HorizontalAlignment = HorizontalAlignment.Center
+                    HorizontalAlignment = align
                 });
             }
 
             // A backing the colour of the canvas keeps the name readable where a link runs under it.
             var label = new Border { Background = LabelBackdrop, CornerRadius = new CornerRadius(3), Padding = new Thickness(3, 0, 3, 0), Child = text, IsHitTestVisible = false };
+            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var size = label.DesiredSize;
 
-            if (isGateway)
+            // Beside the node the first line sits level with its centre; above and below the label is centred on it.
+            var (left, top) = side switch
             {
-                Canvas.SetLeft(label, node.X + 26);
-                Canvas.SetTop(label, node.Y - 9);
-            }
-            else
-            {
-                label.Width = 130;
-                Canvas.SetLeft(label, node.X - 65);
-                Canvas.SetTop(label, node.Y + 20);
-            }
+                LabelSide.Right => (node.X + 30, node.Y - 11),
+                LabelSide.Left => (node.X - 30 - size.Width, node.Y - 11),
+                LabelSide.Above => (node.X - size.Width / 2, node.Y - 28 - size.Height),
+                _ => (node.X - size.Width / 2, node.Y + 26)
+            };
 
+            Canvas.SetLeft(label, left);
+            Canvas.SetTop(label, top);
             MeshCanvas.Children.Add(label);
         }
         //----------------------------------------------------------//
@@ -911,9 +1090,17 @@ namespace SmartX.Client.Views
 
 
     /// <summary>
-    /// One line under Route options: a way of routing the node, and its hops and power.
+    /// One line under Compare routes: a way of routing the node, whether it is the route in use or the
+    /// cheapest, and its hops and power.
     /// </summary>
-    public sealed record RouteOptionRow(string Label, string Detail, Brush DetailBrush);
+    public sealed record RouteOptionRow(string Label, string Method, bool InUse, bool Cheapest, string Hops, string Power, Brush PowerBrush);
+    //----------------------------------------------------------//
+
+
+    /// <summary>
+    /// One line in the Connectivity visit order: its place in the search and the node's name.
+    /// </summary>
+    public sealed record VisitRow(string Number, string Name);
     //----------------------------------------------------------//
 
 
@@ -925,16 +1112,27 @@ namespace SmartX.Client.Views
 
 
     /// <summary>
-    /// One stop on the Route to gateway card: a dot on a line, the node's name, and the cost of the link into it.
+    /// One line in the history table: a reading's time and its formatted value.
+    /// </summary>
+    public sealed record HistoryRow(string Time, string Value);
+    //----------------------------------------------------------//
+
+
+    /// <summary>
+    /// One stop on the Route to gateway card: a dot on a line, the node's name, and the cost of the link
+    /// into it (the first stop, the node itself, says "selected" instead).
     /// </summary>
     public sealed record RouteStopRow(
         string Name,
-        string Detail,
+        FontWeight NameWeight,
         string CostText,
         bool HasCost,
+        bool IsOrigin,
         bool HasLineAbove,
         bool HasLineBelow,
-        Brush MarkerFill);
+        Brush MarkerFill,
+        Brush MarkerStroke,
+        string Tip);
 }
 
 //------------------------------------------- End Of File -------------------------------------------//
