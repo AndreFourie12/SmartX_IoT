@@ -1,8 +1,13 @@
 # Smart-X Feedback and Update Ledger (Part 3)
 
 **Student:** Andre Fourie (ST10438312)
+
+
 **Module:** PROG7312 POE
+
+
 **Date:** 13 November 2026
+
 
 This file lists the updates made to Smart-X after the lecturer's feedback on Parts 1 and 2, and the refinements and bug fixes made while building Part 3. Each entry says where the change lives and how it was checked.
 
@@ -67,6 +72,5 @@ The new Network Topology page follows the same pattern on the client: `TopologyV
 | 7 | The Network Topology page was reworked to fit the window: lists scroll inside their cards, node names are placed clear of links, scroll bars were slimmed, and the route card was simplified. | Nothing on the page should sit below the fold, and the page should look like the other two pillars. | `TopologyView.xaml`, `TopologyView.xaml.cs`, `Theme.xaml` |
 | 8 | The test project now holds 42 xUnit test methods across six files. | Every Part 3 feature has expected values fixed in a test. | `SmartX.Tests` |
 
-## 5. Still open
 
-- The Part 3 video link is added to the README once the video is uploaded.
+
