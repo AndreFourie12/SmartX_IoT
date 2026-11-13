@@ -90,12 +90,12 @@ Part 3 adds the **Network Topology & Mesh Routing** pillar. It models the 16 ESP
 - ASP.NET Core Minimal API for the gateway
 - xUnit for the tests
 - Docker (optional, for running the API in a container)
-### Research Task
- 
-The research paper for part 1: [View the research paper](ST10438312_PROG7312_Part_1_Research.pdf)
+### Research Task and Reports
 
-
-The research paper for part 3
+- Research paper for Part 1: [View the research paper](ST10438312_PROG7312_Part_1_Research.pdf)
+- Part 3 implementation and completion report: [View the report](ST10438312_PROG7312_ImplementationReport.pdf)
+- Part 3 feedback and update ledger: [docs/feedback-ledger.md](docs/feedback-ledger.md)
+- Part 3 notes on each structure: [docs/part3-notes.md](docs/part3-notes.md)
  
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
  
@@ -108,6 +108,7 @@ The research paper for part 3
 - Windows (the client is a WPF app and only runs on Windows)
 - Visual Studio with .NET 10 support, if you want to run it from the IDE
 - Docker Desktop, only if you want to run the API in a container
+
 Both the API and the client have to be running. The client connects to the API at `http://localhost:5224`. If the client opens before the API is ready, it shows **Gateway unreachable** and connects on its own once the API is up.
  
 > If you download the repository as a ZIP, Windows can nest the folder inside itself and push the build past the 260-character path limit. `SmartX/Directory.Build.props` handles this automatically, so no extra steps are needed.
@@ -298,13 +299,39 @@ A self-balancing tree that keeps each sensor's readings in time order and answer
 1. Open **Network Topology** and scroll to **Historical telemetry**.
 2. Enter `ESP32-SOIL-02` as the sensor and a window of a few minutes (for example the last 7 minutes), then click **Run query**.
 3. The caption reports how many readings came back and how many tree nodes were visited. A 7-minute window returned 105 readings by visiting 117 of 4,047 stored nodes. The old `SortedDictionary` walk would have skipped every earlier reading first.
+
 How it works:
  
 - Each node stores its height. After an insert, the nodes on the path back to the root recalculate their height, and any node whose two sides differ by more than one is fixed with a single or double rotation.
 - That keeps the height at most 1.44 x log2(n + 2), whatever order the data arrives in. The tree for SOIL-02 had height 12 against a limit of about 17.
 - `Add`, `TryGet`, `Contains`, `Remove` and `RemoveMin` are O(log n). `Range` skips a node's left subtree when the node is not above the window start and its right subtree when the node is not below the window end, so it is O(log n + k).
 - Keys are `TimelineKey` values (timestamp, then ingest sequence), so two readings with the same timestamp never overwrite each other. Each device keeps its newest 5,000 readings, and `RemoveMin` drops the oldest.
-- The stress test loads 60,000 points into one tree: height 19 against a limit of 22.9, a 100-point window found by visiting 116 nodes, and height 18 after removing 20,000.
+- The stress test loads 60,000 points into one tree: height 19 against a limit of 22.9, and a 100-point window found by visiting 116 nodes. After the oldest 10,000 points are evicted with `RemoveMin` (as the timeline store does at its cap), the 50,000 that remain are still within the height bound.
+
+The pruning is two `if` statements. This is the real code from [`AvlTree.cs`](SmartX/SmartX.Shared/Collections/AvlTree.cs):
+
+```csharp
+private static void Collect(Node? node, TKey from, TKey to,
+    List<KeyValuePair<TKey, TValue>> into, ref int visited)
+{
+    if (node is null)
+        return;
+
+    visited++;                                   // counted, so the page can show the saving
+
+    if (node.Key.CompareTo(from) > 0)            // the left side can still hold keys >= from
+        Collect(node.Left, from, to, into, ref visited);
+
+    if (node.Key.CompareTo(from) >= 0 && node.Key.CompareTo(to) <= 0)
+        into.Add(new KeyValuePair<TKey, TValue>(node.Key, node.Value));   // in key order
+
+    if (node.Key.CompareTo(to) < 0)              // the right side can still hold keys <= to
+        Collect(node.Right, from, to, into, ref visited);
+}
+```
+
+With 60,000 points a 100-point window visits 116 nodes, not 60,000.
+
 ### 2. Graph (the ESP32 mesh)
  
 The 16 devices are vertices and the 28 wireless links are undirected edges, each with a power cost in milliwatts per packet.
@@ -320,6 +347,7 @@ Which nodes can still reach the gateway.
 1. In the **Connectivity** card, the line under the toggle says how many live nodes the gateway reaches (*Reached N of N live nodes*, with any cut-off nodes listed).
 2. Switch between **BFS** and **DFS** to see the two visit orders. Both reach the same nodes and differ only in order.
 3. Select a node: its hop count in the node list and the node circle is the BFS level.
+
 BFS uses a `Queue<string>`, so the first time it reaches a node is by the fewest hops. DFS uses a `Stack<string>`. Both are O(V + E). With every node up, the furthest node (Climate Node 3) is 4 hops from the gateway.
  
 ### 4. Minimum Spanning Tree (Prim's algorithm)
@@ -329,8 +357,30 @@ The cheapest set of links that keeps every reachable node connected to the gatew
 1. The blue lines on the mesh drawing are the MST. Their total is in the header under **MST POWER COST**.
 2. With every node up the tree has 15 edges and costs **41.3 mW**, against 99.2 mW for all 28 links (a saving of 57.9 mW, 58%).
 3. Select a node: **Route to gateway** lists its route hop by hop through the tree, with the cost of each link and the total.
+
 Prim grows the tree outward from the gateway. A `PriorityQueue<(string From, string To), double>` (a binary heap) always returns the cheapest link leaving the tree built so far, so the algorithm is O(E log V). If a failure splits the mesh, Prim spans only the gateway's side and returns the rest as an unreachable list instead of failing.
  
+The growing loop, from [`MeshAlgorithms.cs`](SmartX/SmartX.Api/Topology/MeshAlgorithms.cs):
+
+```csharp
+var queue = new PriorityQueue<(string From, string To), double>();
+inTree.Add(root);
+QueueLinks(graph, root, inTree, isDown, queue);
+
+while (queue.TryDequeue(out var step, out double cost))
+{
+    // A cheaper link may already have brought this node in.
+    if (!inTree.Add(step.To))
+        continue;
+
+    edges.Add(new MeshLink(step.From, step.To, cost));
+    parent[step.To] = step.From;                 // the next hop towards the gateway
+    total += cost;
+
+    QueueLinks(graph, step.To, inTree, isDown, queue);
+}
+```
+
 ### 5. Least-Power Route (Dijkstra)
  
 The tree minimises the power of the whole network, not of each node's own path, so a node's tree route is not always its cheapest.
@@ -338,6 +388,7 @@ The tree minimises the power of the whole network, not of each node's own path, 
 1. Click **Simulate node failure** with **Pump A** selected.
 2. Select **Moisture Sensor B** and read **Route options**.
 3. By the spanning tree it takes 5 hops at 15.7 mW, by BFS 4 hops at 16.1 mW, and by Dijkstra 4 hops at 13.8 mW (the cheapest, shown in green).
+
 Dijkstra uses the same priority queue and parent-map pattern as Prim, but the queue holds the total cost so far, so each node comes out of it with its final cost (link costs are never negative). It is also O(E log V).
  
 ### 6. Self-Healing Demo
@@ -363,6 +414,7 @@ Critical alerts skip the line.
 2. Click **Reconnect storm (load test)**. The simulated fleet sends 1,200 buffered readings at once. **ROUTINE QUEUE** jumps into the hundreds and its average wait climbs to a few seconds, because the gateway only processes 200 routine readings a second.
 3. Halfway through, the storm includes one severe power spike. Within a moment a red **CRITICAL** banner appears, saying how many milliseconds after arrival it was processed and how many waiting packets it went ahead of. The same alert shows in the command stream with a **Priority lane** tag.
 4. For a single alert on demand, click **Simulate critical alert** and pick **Severe power spike**, **Critical moisture drop** or **Overheating**. The status line shows which lane the API routed it to.
+
 **From the command line** - a normal reading, then a spike:
  
 ```bash
@@ -461,6 +513,7 @@ The engine starts with a few days of seeded operator history, so it has patterns
 4. Leave Pump A running: Moisture Sensor A (also fed by Pump A) eventually goes above 90%, and the engine suggests **Turn OFF Pump A** (learned 3 of 3).
 5. Click **Shut down all valves** while B is dry: a **ZONE RULE** card points out that *Valve 2 is closed, so no pump can get water to this bay until it opens*. This one needs no history; it works from where the devices are installed.
 6. Expand **Learned patterns** under the cards to see the strongest condition and response patterns behind the suggestions, and how often each one held.
+
 The cards come from four sources: **LEARNED** (what operators did after the same condition), **SEQUENCE** (what usually follows your last action), **ZONE RULE** (the nearest pump, valve or relay in the same sub-zone, for when there is no history) and **FORECAST** (a trend heading for a threshold).
  
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -512,6 +565,7 @@ The cards come from four sources: **LEARNED** (what operators did after the same
 | API routes | [`TopologyEndpoints.cs`](SmartX/SmartX.Api/Endpoints/TopologyEndpoints.cs) - five routes under `/api/topology`; contracts in [`TopologyContracts.cs`](SmartX/SmartX.Shared/Contracts/TopologyContracts.cs). |
 | Main menu integration | [`MainWindow.xaml.cs`](SmartX/SmartX.Client/MainWindow.xaml.cs) creates [`TopologyView`](SmartX/SmartX.Client/Views/TopologyView.xaml.cs) once and keeps it in the same `Dictionary` as the other pillars; Ctrl+3 opens it, and its 3-second refresh runs only while it is visible. |
 | Tests | [`SmartX.Tests`](SmartX/SmartX.Tests) - 42 test methods, run with `dotnet test SmartX.slnx`. |
+| Feedback ledger | [`docs/feedback-ledger.md`](docs/feedback-ledger.md) - the updates made after the Part 1 and Part 2 feedback, and the bugs fixed and refinements made in Part 3. |
  
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
  
