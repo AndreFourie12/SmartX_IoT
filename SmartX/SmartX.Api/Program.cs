@@ -52,9 +52,10 @@ builder.Services.AddSingleton<SimulationControl>();
 // Network topology and mesh routing (Part 3)
 builder.Services.AddSingleton<MeshTopologyService>();
 
-// The queue consumer and the dropout sweep.
+// The queue consumer, the dropout sweep and the background insight analysis.
 builder.Services.AddHostedService<TelemetryProcessingService>();
 builder.Services.AddHostedService<DeviceHealthMonitorService>();
+builder.Services.AddHostedService<InsightRefreshService>();
 
 // The simulated device fleet talks to this API over real HTTP, like hardware would.
 // Running from Visual Studio's https profile it may only find the dev-certificate address; trusting

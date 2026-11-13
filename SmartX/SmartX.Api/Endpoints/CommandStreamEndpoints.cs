@@ -38,7 +38,7 @@ namespace SmartX.Api.Endpoints
                 LiveDeviceRegistry registry,
                 CommandStreamService stream) =>
             {
-                var report = stream.Analyse(registry.Snapshot(), DateTimeOffset.UtcNow);
+                var report = stream.LatestReport();
                 return Results.Ok(registry.Query(new DeviceQuery(q, category, alert), report.Highlights));
             });
 
