@@ -92,7 +92,10 @@ Part 3 adds the **Network Topology & Mesh Routing** pillar. It models the 16 ESP
 - Docker (optional, for running the API in a container)
 ### Research Task
  
-The research part of the project can be found here: [View the research paper](ST10438312_PROG7312_Part_1_Research.pdf)
+The research paper for part 1: [View the research paper](ST10438312_PROG7312_Part_1_Research.pdf)
+
+
+The research paper for part 3
  
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
  
