@@ -591,5 +591,6 @@ The cards come from four sources: **LEARNED** (what operators did after the same
  
 - Part 1: https://youtu.be/gwcMaRGh6Yg
 - Part 2: https://youtu.be/4H8_9ItZpOU
-- Part 3: 
+- Part 3: https://youtu.be/oMSJHX6JA4o
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
