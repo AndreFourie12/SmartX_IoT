@@ -28,12 +28,11 @@ namespace SmartX.Client.Views
         private const string GatewayId = "GW-01";
         private const string DefaultNodeId = "ESP32-SOIL-02";
 
-        // How the From and To boxes show a time, and the other spellings they accept.
-        private const string StampFormat = "dd MMM yyyy '·' HH:mm:ss";
-        private static readonly string[] StampFormats =
-        [
-            StampFormat, "dd MMM yyyy HH:mm:ss", "dd MMM yyyy HH:mm", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "HH:mm:ss", "HH:mm"
-        ];
+        // The days the From and To pickers offer: today and yesterday, newest first. The gateway holds a few
+        // hours of history, so no older day has anything in it.
+        private readonly List<DateTime> _days = [];
+        private string _sensorKey = string.Empty;
+        private bool _syncingPickers;
 
         private readonly INavigator _navigator;
         private readonly DispatcherTimer _pollTimer = new() { Interval = TimeSpan.FromSeconds(3) };
@@ -79,10 +78,12 @@ namespace SmartX.Client.Views
             _subtitle = StatusText.Text;
             NodeList.ItemsSource = _rows;
 
-            // The history query starts on the demo sensor and the last quarter hour.
-            HistorySensorBox.Text = DefaultNodeId;
-            HistoryFromBox.Text = DateTime.Now.AddMinutes(-15).ToString(StampFormat, CultureInfo.InvariantCulture);
-            HistoryToBox.Text = DateTime.Now.ToString(StampFormat, CultureInfo.InvariantCulture);
+            // The history query starts on the last quarter hour. The sensor list fills when the mesh first arrives.
+            HistoryFromHour.ItemsSource = HistoryToHour.ItemsSource = Enumerable.Range(0, 24).Select(h => h.ToString("00")).ToList();
+            HistoryFromMinute.ItemsSource = HistoryToMinute.ItemsSource = Enumerable.Range(0, 60).Select(m => m.ToString("00")).ToList();
+            RefreshDays();
+            SetPicker(HistoryFromDate, HistoryFromHour, HistoryFromMinute, DateTime.Now.AddMinutes(-15));
+            SetPicker(HistoryToDate, HistoryToHour, HistoryToMinute, DateTime.Now);
 
             _pollTimer.Tick += async (_, _) => await RefreshAsync();
         }
@@ -99,6 +100,7 @@ namespace SmartX.Client.Views
         {
             _active = true;
             _pollTimer.Start();
+            RefreshDays();
             await RefreshAsync();
         }
         //----------------------------------------------------------//
@@ -166,6 +168,7 @@ namespace SmartX.Client.Views
                     {
                         _snapshot = snapshot;
                         _selectedId ??= DefaultSelection(snapshot);
+                        FillSensorList(snapshot);
                         RenderHeader(snapshot);
                         RenderNodes();
                     }
@@ -508,35 +511,27 @@ namespace SmartX.Client.Views
 
         /// <summary>
         /// Runs the range query on the gateway. It only runs when asked: the page does not poll history.
-        /// A time with no date means today, and times are read as local time.
+        /// The sensor and both times come from drop-downs, so there is nothing to mistype, and the From and
+        /// To pickers keep each other in order. From starts at the beginning of its minute and To runs to
+        /// the end of its minute. Times are local.
         /// </summary>
         private async void OnRunQueryClick(object sender, RoutedEventArgs e)
         {
-            string sensor = HistorySensorBox.Text.Trim();
-
-            if (sensor.Length == 0)
+            if (HistorySensorBox.SelectedItem is not SensorChoice sensor
+                || ReadPicker(HistoryFromDate, HistoryFromHour, HistoryFromMinute) is not { } fromLocal
+                || ReadPicker(HistoryToDate, HistoryToHour, HistoryToMinute) is not { } toLocal)
             {
-                ShowHistoryError("Enter a sensor id or MAC address.");
                 return;
             }
 
-            if (!TryParseStamp(HistoryFromBox.Text, out var from) || !TryParseStamp(HistoryToBox.Text, out var to))
-            {
-                ShowHistoryError("I can't read that time. Try 12 Nov 2026 · 08:24:00, 2026-11-12 08:24 or just 08:24:00 for today.");
-                return;
-            }
-
-            if (from > to)
-            {
-                ShowHistoryError("From must not be after To.");
-                return;
-            }
+            var from = new DateTimeOffset(fromLocal).ToUniversalTime();
+            var to = new DateTimeOffset(toLocal.AddSeconds(59)).ToUniversalTime();
 
             RunQueryButton.IsEnabled = false;
 
             try
             {
-                var result = await App.ApiClient.GetHistoryAsync(sensor, from, to);
+                var result = await App.ApiClient.GetHistoryAsync(sensor.Id, from, to);
 
                 if (result is not null)
                     RenderHistory(result);
@@ -557,10 +552,101 @@ namespace SmartX.Client.Views
         //----------------------------------------------------------//
 
 
-        private void OnHistoryKeyDown(object sender, KeyEventArgs e)
+        /// <summary>
+        /// Lists every node in the mesh (the gateway aside) in the Sensor drop-down, keeping the choice made.
+        /// It only rebuilds when the set of nodes changes, so an open list is not disturbed by the poll.
+        /// </summary>
+        private void FillSensorList(TopologySnapshotDto snapshot)
         {
-            if (e.Key == Key.Enter && RunQueryButton.IsEnabled)
-                OnRunQueryClick(sender, e);
+            var sensors = snapshot.Nodes
+                .Where(node => node.Id != GatewayId)
+                .OrderBy(node => node.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(node => new SensorChoice(node.Id, node.Name))
+                .ToList();
+
+            string key = string.Join('|', sensors.Select(sensor => sensor.Id));
+            if (key == _sensorKey)
+                return;
+
+            _sensorKey = key;
+            string? keep = (HistorySensorBox.SelectedItem as SensorChoice)?.Id ?? DefaultNodeId;
+
+            HistorySensorBox.ItemsSource = sensors;
+            HistorySensorBox.SelectedItem = sensors.FirstOrDefault(sensor => sensor.Id == keep) ?? sensors.FirstOrDefault();
+            RunQueryButton.IsEnabled = sensors.Count > 0;
+        }
+        //----------------------------------------------------------//
+
+
+        /// <summary>
+        /// Offers today and yesterday in the date drop-downs. Run again when the page is shown, so a page left
+        /// open past midnight moves on; a day that is still on offer stays selected.
+        /// </summary>
+        private void RefreshDays()
+        {
+            var today = DateTime.Today;
+
+            if (_days.Count > 0 && _days[0] == today)
+                return;
+
+            var from = ReadPicker(HistoryFromDate, HistoryFromHour, HistoryFromMinute);
+            var to = ReadPicker(HistoryToDate, HistoryToHour, HistoryToMinute);
+
+            _days.Clear();
+            _days.AddRange([today, today.AddDays(-1)]);
+
+            var labels = _days.Select(day => day.ToString("dd MMM", CultureInfo.InvariantCulture)).ToList();
+            HistoryFromDate.ItemsSource = labels;
+            HistoryToDate.ItemsSource = labels;
+
+            if (from is { } f && to is { } t)
+            {
+                SetPicker(HistoryFromDate, HistoryFromHour, HistoryFromMinute, f);
+                SetPicker(HistoryToDate, HistoryToHour, HistoryToMinute, t);
+            }
+        }
+        //----------------------------------------------------------//
+
+
+        private void SetPicker(ComboBox date, ComboBox hour, ComboBox minute, DateTime when)
+        {
+            bool was = _syncingPickers;
+            _syncingPickers = true;
+
+            try
+            {
+                date.SelectedIndex = Math.Max(_days.IndexOf(when.Date), 0);
+                hour.SelectedIndex = when.Hour;
+                minute.SelectedIndex = when.Minute;
+            }
+            finally
+            {
+                _syncingPickers = was;
+            }
+        }
+
+
+        private DateTime? ReadPicker(ComboBox date, ComboBox hour, ComboBox minute) =>
+            date.SelectedIndex < 0 || date.SelectedIndex >= _days.Count || hour.SelectedIndex < 0 || minute.SelectedIndex < 0
+                ? null
+                : DateTime.SpecifyKind(_days[date.SelectedIndex].AddHours(hour.SelectedIndex).AddMinutes(minute.SelectedIndex), DateTimeKind.Local);
+
+
+        /// <summary>
+        /// Keeps From from passing To: whichever picker was just moved, the other follows it if they would cross.
+        /// </summary>
+        private void OnPickerChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_syncingPickers || ReadPicker(HistoryFromDate, HistoryFromHour, HistoryFromMinute) is not { } from
+                || ReadPicker(HistoryToDate, HistoryToHour, HistoryToMinute) is not { } to || from <= to)
+            {
+                return;
+            }
+
+            if (sender == HistoryFromDate || sender == HistoryFromHour || sender == HistoryFromMinute)
+                SetPicker(HistoryToDate, HistoryToHour, HistoryToMinute, from);
+            else
+                SetPicker(HistoryFromDate, HistoryFromHour, HistoryFromMinute, to);
         }
         //----------------------------------------------------------//
 
@@ -599,18 +685,6 @@ namespace SmartX.Client.Views
         }
 
 
-        private static bool TryParseStamp(string text, out DateTimeOffset utc)
-        {
-            if (DateTime.TryParseExact(text.Trim(), StampFormats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var local))
-            {
-                utc = new DateTimeOffset(local).ToUniversalTime();
-                return true;
-            }
-
-            utc = default;
-            return false;
-        }
-        //----------------------------------------------------------//
 
 
 
@@ -1115,6 +1189,13 @@ namespace SmartX.Client.Views
     /// One line in the history table: a reading's time and its formatted value.
     /// </summary>
     public sealed record HistoryRow(string Time, string Value);
+    //----------------------------------------------------------//
+
+
+    /// <summary>
+    /// One choice in the Sensor drop-down: a node's id and its name.
+    /// </summary>
+    public sealed record SensorChoice(string Id, string Name);
     //----------------------------------------------------------//
 
 

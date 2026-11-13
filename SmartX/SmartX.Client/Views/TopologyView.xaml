@@ -29,6 +29,90 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
+        <!-- ============ Drop-down used by the history query ============ -->
+        <Style x:Key="PickerCombo" TargetType="ComboBox">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="MaxDropDownHeight" Value="260" />
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Cursor" Value="Hand" />
+                        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border x:Name="Bd" Background="Transparent" CornerRadius="5" Padding="10,6">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverGrey}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBlueSoft}" />
+                                            <Setter Property="Foreground" Value="{StaticResource AccentBlue}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Focusable="False" ClickMode="Press"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="Bd" Background="White" BorderBrush="{StaticResource CardBorder}"
+                                                BorderThickness="1" CornerRadius="8" SnapsToDevicePixels="True" />
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#CBD2DC" />
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource SelectedRowBorder}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <Grid IsHitTestVisible="False" Margin="{TemplateBinding Padding}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                  VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="9"
+                                           Foreground="{StaticResource TextSecondary}" Margin="8,0,0,0" />
+                            </Grid>
+
+                            <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
+                                   AllowsTransparency="True" Focusable="False" PopupAnimation="None">
+                                <Border Background="White" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
+                                        CornerRadius="8" Padding="4" Margin="0,4,0,0"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ============ Header counters ============ -->
         <Style x:Key="KpiDivider" TargetType="Border">
             <Setter Property="Width" Value="1" />
@@ -549,44 +633,71 @@
 
                 <Grid Grid.Row="1" Margin="0,6,0,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="1.1*" />
                         <ColumnDefinition Width="14" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="1.2*" />
                         <ColumnDefinition Width="14" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="1.2*" />
                         <ColumnDefinition Width="14" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
+                    <!-- Every choice here is picked from a list, so a query can never be typed wrongly -->
                     <StackPanel>
                         <TextBlock Text="SENSOR" Style="{StaticResource EyebrowText}" FontSize="10" Margin="0,0,0,3" />
-                        <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="8" Background="White">
-                            <TextBox x:Name="HistorySensorBox" BorderThickness="0" Background="Transparent" Padding="10,7" FontSize="12.5"
-                                     FontFamily="{StaticResource MonoFont}" KeyDown="OnHistoryKeyDown"
-                                     ToolTip="A node id such as ESP32-SOIL-02, or its MAC address." />
-                        </Border>
+                        <ComboBox x:Name="HistorySensorBox" Style="{StaticResource PickerCombo}" ToolTip="Any node in the mesh.">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Id}" FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                                   Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </StackPanel>
 
                     <StackPanel Grid.Column="2">
                         <TextBlock Text="FROM" Style="{StaticResource EyebrowText}" FontSize="10" Margin="0,0,0,3" />
-                        <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="8" Background="White">
-                            <TextBox x:Name="HistoryFromBox" BorderThickness="0" Background="Transparent" Padding="10,7" FontSize="12.5"
-                                     FontFamily="{StaticResource MonoFont}" KeyDown="OnHistoryKeyDown"
-                                     ToolTip="Local time, such as 12 Nov 2026 · 08:24:00, 2026-11-12 08:24 or just 08:24:00 for today." />
-                        </Border>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="5" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="HistoryFromDate" Style="{StaticResource PickerCombo}" SelectionChanged="OnPickerChanged" ToolTip="Day" />
+                            <ComboBox x:Name="HistoryFromHour" Grid.Column="2" Style="{StaticResource PickerCombo}" MinWidth="58"
+                                      FontFamily="{StaticResource MonoFont}" SelectionChanged="OnPickerChanged" ToolTip="Hour (24 hour clock)" />
+                            <TextBlock Grid.Column="3" Text=":" Margin="3,0" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" />
+                            <ComboBox x:Name="HistoryFromMinute" Grid.Column="4" Style="{StaticResource PickerCombo}" MinWidth="58"
+                                      FontFamily="{StaticResource MonoFont}" SelectionChanged="OnPickerChanged" ToolTip="Minute" />
+                        </Grid>
                     </StackPanel>
 
                     <StackPanel Grid.Column="4">
                         <TextBlock Text="TO" Style="{StaticResource EyebrowText}" FontSize="10" Margin="0,0,0,3" />
-                        <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="8" Background="White">
-                            <TextBox x:Name="HistoryToBox" BorderThickness="0" Background="Transparent" Padding="10,7" FontSize="12.5"
-                                     FontFamily="{StaticResource MonoFont}" KeyDown="OnHistoryKeyDown"
-                                     ToolTip="Local time, in the same formats as From." />
-                        </Border>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="5" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="HistoryToDate" Style="{StaticResource PickerCombo}" SelectionChanged="OnPickerChanged" ToolTip="Day" />
+                            <ComboBox x:Name="HistoryToHour" Grid.Column="2" Style="{StaticResource PickerCombo}" MinWidth="58"
+                                      FontFamily="{StaticResource MonoFont}" SelectionChanged="OnPickerChanged" ToolTip="Hour (24 hour clock)" />
+                            <TextBlock Grid.Column="3" Text=":" Margin="3,0" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" />
+                            <ComboBox x:Name="HistoryToMinute" Grid.Column="4" Style="{StaticResource PickerCombo}" MinWidth="58"
+                                      FontFamily="{StaticResource MonoFont}" SelectionChanged="OnPickerChanged" ToolTip="Minute (the query runs to the end of it)" />
+                        </Grid>
                     </StackPanel>
 
                     <Button x:Name="RunQueryButton" Grid.Column="6" Content="Run query" Style="{StaticResource PrimaryButton}"
-                            VerticalAlignment="Bottom" Padding="18,8" Click="OnRunQueryClick" />
+                            VerticalAlignment="Bottom" Padding="18,8" Click="OnRunQueryClick" IsEnabled="False" />
                 </Grid>
 
                 <TextBlock x:Name="HistoryError" Grid.Row="2" Visibility="Collapsed" Foreground="{StaticResource StatusRedText}" FontSize="12"
